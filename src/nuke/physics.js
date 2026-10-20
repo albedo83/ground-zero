@@ -553,13 +553,26 @@ export function explosionTimeline(effects, tSec) {
   const coreFade = Math.exp(-Math.max(0, t - tR) / (1.6 * tau + 20));
   const brightness = s0.flashIntensity * 60 * (t < tR ? 1 : Math.exp(-(t - tR) / (1.5 * tR))) + 1.5 * coreFade;
 
-  // Étendue englobante pour le raymarching
-  const radiusBound = Math.max(fireballR * 1.4, capMajor + capMinor * 1.6, surgeR + surgeH * 1.5, wilson > 0.01 ? wilsonR * 1.1 : 0) + 50;
-  const heightBound = Math.max(capC + capMinor * 1.5, hob + fireballR * 1.4, surgeH * 2) + 50;
+  // Après la stabilisation : le vent d'altitude emporte le nuage. La tige s'incline puis se rompt,
+  // le chapeau s'étale et s'amincit, puis tout se dissipe (≈ 20–30 min pour un tir de 15 kt).
+  const late = smooth(4 * tau, 40 * tau, t);
+  const spreadMajor = capMajor * (1 + 0.9 * late);
+  const spreadMinor = capMinor * (1 + 0.3 * late);
+  const stemFade = 1 - smooth(4 * tau, 14 * tau, t);
+  const fade = 1 - smooth(12 * tau, 48 * tau, t);
+  const windMs = 16 + 6 * big01(Y);                       // vent en altitude (jet stream modéré)
+  const driftM = windMs * Math.max(0, t - 1.5 * tau) * (0.4 + 0.6 * smooth(1.5 * tau, 6 * tau, t));
+  const windDir = 0.35;                                     // vers l'est-nord-est (rad, depuis l'est)
+  const driftX = driftM * Math.cos(windDir), driftZ = -driftM * Math.sin(windDir);
+
+  // Étendue englobante pour le raymarching (la dérive élargit le cylindre)
+  const radiusBound = Math.max(fireballR * 1.4, spreadMajor + spreadMinor * 1.6, surgeR + surgeH * 1.5, wilson > 0.01 ? wilsonR * 1.1 : 0) + driftM + 50;
+  const heightBound = Math.max(capC + spreadMinor * 1.5, hob + fireballR * 1.4, surgeH * 2) + 50;
 
   return {
     ...s0,
-    t, tau, hob, fireballR, capC, capMajor, capMinor, toroid,
+    t, tau, hob, fireballR, capC, capMajor: spreadMajor, capMinor: spreadMinor, toroid,
+    stemFade, fade, driftX, driftZ, driftM, dissipated: fade < 0.01,
     stemTop, stemR, surgeR, surgeH, surgeDensity,
     wilson, wilsonR, coreTemp, coreFade, brightness,
     radiusBound, heightBound,
@@ -570,6 +583,10 @@ export function explosionTimeline(effects, tSec) {
 export function overpressureAt(effects, r) {
   const rn = Math.max(0.05, r / effects.radii.blast5PsiM);
   return 5.0 * (0.45 / Math.pow(rn, 1.35) + 0.55 / Math.pow(rn, 2.6));
+}
+
+function big01(Y) {
+  return Math.min(1, Math.max(0, Math.log10(Math.max(1, Y)) / 4.7));
 }
 
 function smooth(a, b, x) {

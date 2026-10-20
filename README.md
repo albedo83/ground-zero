@@ -24,7 +24,8 @@ Raccourcis : `Espace` détoner · `1-4` vues (globe, cinéma, tactique, témoin)
 | Ville | Bâtiments rasés/inclinés au passage du front selon la surpression, vaporisés dans la boule de feu, carbonisés, incendies aux étages bas |
 | Caméra | Flash qui sature, iris automatique, bloom HDR, grain/vignette, tremblement à l'arrivée du souffle, bandes cinéma |
 | Son | Flash immédiat, boom retardé par la distance réelle (≈ 340 m/s), grondement filtré selon la surpression reçue |
-| Temps | Temps réel pendant le flash et le souffle, puis accéléré « documentaire » (AUTO), frise temporelle navigable |
+| Temps | Temps réel pendant le flash et le souffle, puis accéléré « documentaire » (AUTO, jusqu'à 30×), frise sur 30 min |
+| Dissipation | Le vent d'altitude emporte le nuage : la tige s'incline et se rompt, le chapeau s'étale puis s'efface (~20–25 min) |
 
 ## Données (0 €, appelées directement par le navigateur)
 
