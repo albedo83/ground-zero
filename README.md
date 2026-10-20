@@ -43,6 +43,8 @@ Raccourcis : `Espace` détoner · `1-4` vues (globe, cinéma, tactique, témoin)
 - `src/nuke/physics.js`, `src/nuke/sound.js` : physique et son (repris puis étendus de `../ground-zero`).
 - `src/main.js` : rendu HDR, horloge de simulation, modes caméra, HUD.
 
+Relief exagéré ×2 par défaut (curseur ×1 à ×4 dans Render pipeline), avec un éclairage rasant qui contraste les versants.
+
 ## Performances
 
 Niveaux de qualité **Ultra / High / Medium / Low** (panneau Render pipeline, *Auto* par défaut) : résolution max,

@@ -97,7 +97,7 @@ export class Globe {
     this.imagery = imagery;
     this.frame = 0;
     this.generation = 0;
-    this.exaggeration = 1;
+    this.exaggeration = 2; // relief exagéré par défaut : les reliefs se lisent même vus d'avion
     this.sse = SSE_THRESHOLD;          // réglé par le niveau de qualité
     this.buildingRange = BUILDING_RANGE;
     this.inflight = 0;
@@ -141,6 +141,7 @@ export class Globe {
     if (k === this.exaggeration) return;
     this.exaggeration = k;
     this.reloadAll();
+    this.addPolarCaps();
     for (const b of this.buildings.values()) {
       if (b.mesh) { this.group.remove(b.mesh); b.mesh.geometry.dispose(); }
     }
@@ -181,9 +182,13 @@ export class Globe {
       mesh.position.set(...center);
       mesh.frustumCulled = false;
       this.group.add(mesh);
+      this.caps.push(mesh);
     };
+    for (const m of this.caps || []) { this.group.remove(m); m.geometry.dispose(); m.material.dispose(); }
+    this.caps = [];
     make(true, 0, 0x1c2b3c);
-    make(false, 2700, 0xf1f4f8);
+    // plateau antarctique (~2 700 m) : suit l'exagération pour rester jointif avec les tuiles
+    make(false, 2700 * this.exaggeration, 0xf1f4f8);
   }
 
   // ---------- Requête de hauteur du sol (pour la caméra) ----------
