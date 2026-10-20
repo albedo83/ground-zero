@@ -81,10 +81,10 @@ fog.color.setRGB(0.3, 0.52, 0.88, THREE.LinearSRGBColorSpace);
 // Chaque niveau règle : résolution max, résolution et nombre de pas du nuage, ombrage du nuage,
 // bloom, réfraction de l'onde de choc, finesse des tuiles et portée des bâtiments 3D.
 const QUALITY = {
-  low: { label: 'Low', dpr: 1, vol: 0.34, steps: 36, shadow2: 0, ao: 0, bloom: false, refraction: false, sse: 2.0, buildings: 2500 },
-  medium: { label: 'Medium', dpr: 1.25, vol: 0.42, steps: 48, shadow2: 0, ao: 1, bloom: true, refraction: true, sse: 1.5, buildings: 4500 },
-  high: { label: 'High', dpr: 1.5, vol: 0.5, steps: 64, shadow2: 1, ao: 1, bloom: true, refraction: true, sse: 1.25, buildings: 7000 },
-  ultra: { label: 'Ultra', dpr: 2, vol: 0.6, steps: 80, shadow2: 1, ao: 1, bloom: true, refraction: true, sse: 1.1, buildings: 9000 },
+  low: { label: 'Low', dpr: 1, vol: 0.34, steps: 36, shadow2: 0, ao: 0, bloom: false, refraction: false, sse: 2.0, buildings: 2500, fires: 90 },
+  medium: { label: 'Medium', dpr: 1.25, vol: 0.42, steps: 48, shadow2: 0, ao: 1, bloom: true, refraction: true, sse: 1.5, buildings: 4500, fires: 160 },
+  high: { label: 'High', dpr: 1.5, vol: 0.5, steps: 64, shadow2: 1, ao: 1, bloom: true, refraction: true, sse: 1.25, buildings: 7000, fires: 250 },
+  ultra: { label: 'Ultra', dpr: 2, vol: 0.6, steps: 80, shadow2: 1, ao: 1, bloom: true, refraction: true, sse: 1.1, buildings: 9000, fires: 360 },
 };
 const TIERS = ['low', 'medium', 'high', 'ultra'];
 // point de départ prudent selon la machine ; le niveau s'ajuste ensuite à la fluidité mesurée
@@ -790,7 +790,7 @@ renderer.setAnimationLoop(() => {
   stars.material.opacity = THREE.MathUtils.clamp((alt - 40000) / 200000, 0, 0.85);
 
   // explosion
-  const s = explosion.update(state.t, camPos, pose.forward, sun.position, scene.fog);
+  const s = explosion.update(state.t, camPos, pose.forward, sun.position, scene.fog, camera.matrixWorld);
   if (state.detonated && s) {
     const e = state.effects;
     const burst = new THREE.Vector3(...geodeticToEcef(d2r(state.lat), d2r(state.lon), explosion.groundH + s.capC));
@@ -887,6 +887,7 @@ function applyQuality(tier) {
   setBloom(userBloom && q.bloom);
   globe.sse = q.sse;
   globe.buildingRange = q.buildings;
+  explosion.fires.setDensity(q.fires);
   lowFor = highFor = slowFor = smoothFor = 0;
   refreshQualityLabel();
   kick();
