@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#020306" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" href="/icon-192.png" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>GROUND//ZERO — 3D Nuclear Explosion Simulator (True Scale)</title>
+  <meta name="description" content="Simulate a nuclear explosion anywhere on Earth in 3D: real terrain and cities, volumetric mushroom cloud, shockwave and blast radii based on Glasstone & Dolan. Free, runs in your browser." />
+  <meta name="robots" content="index, follow, max-image-preview:large" />
+  <link rel="canonical" href="https://airfall.dev/ground-zero/" />
+
+  <!-- Partage (Open Graph / Twitter) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="GROUND//ZERO" />
+  <meta property="og:title" content="GROUND//ZERO — 3D Nuclear Explosion Simulator" />
+  <meta property="og:description" content="Simulate a nuclear explosion anywhere on Earth in 3D: real terrain and cities, volumetric mushroom cloud, shockwave and blast radii based on Glasstone & Dolan. Free, runs in your browser." />
+  <meta property="og:url" content="https://airfall.dev/ground-zero/" />
+  <meta property="og:image" content="https://airfall.dev/ground-zero/og-image.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="A true-scale mushroom cloud rising over Paris, rendered in 3D" />
+  <meta property="og:locale" content="en_US" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="GROUND//ZERO — 3D Nuclear Explosion Simulator" />
+  <meta name="twitter:description" content="Simulate a nuclear explosion anywhere on Earth in 3D: real terrain and cities, volumetric mushroom cloud, shockwave and blast radii based on Glasstone & Dolan. Free, runs in your browser." />
+  <meta name="twitter:image" content="https://airfall.dev/ground-zero/og-image.jpg" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "GROUND//ZERO",
+    "alternateName": "Ground Zero 3D nuclear explosion simulator",
+    "url": "https://airfall.dev/ground-zero/",
+    "image": "https://airfall.dev/ground-zero/og-image.jpg",
+    "description": "Simulate a nuclear explosion anywhere on Earth in 3D: real terrain and cities, volumetric mushroom cloud, shockwave and blast radii based on Glasstone & Dolan. Free, runs in your browser.",
+    "applicationCategory": "EducationalApplication",
+    "operatingSystem": "Any — requires a WebGPU or WebGL 2 browser",
+    "browserRequirements": "Requires WebGPU (falls back to WebGL 2)",
+    "isAccessibleForFree": true,
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+    "inLanguage": "en"
+  }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <noscript>
+    <div class="noscript">
+      <h1>GROUND//ZERO — 3D nuclear explosion simulator</h1>
+      <p>This simulator needs JavaScript and a WebGPU or WebGL 2 browser. It renders true-scale nuclear explosions in 3D over real terrain, satellite imagery and OpenStreetMap buildings, with blast radii based on Glasstone &amp; Dolan (1977).</p>
+    </div>
+  </noscript>
+  <div id="canvas-container"><canvas id="view"></canvas></div>
+
+  <div id="thermal-flash-overlay"></div>
+  <div id="rotate-hint"><div class="rotate-icon">📱</div><div>Rotate your phone to landscape</div><div class="rotate-sub">GROUND//ZERO is designed for a wide screen</div></div>
+  <div id="letterbox" class="letterbox"></div>
+
+  <!-- Réticule de cible projeté à l'écran (taille constante quel que soit le zoom) -->
+  <div id="target-marker" class="target-marker">
+    <div class="tm-reticle">
+      <span class="tm-lock"></span>
+      <span class="tm-pulse"></span>
+      <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true">
+        <circle cx="20" cy="20" r="11" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M20 2v9M20 29v9M2 20h9M29 20h9" stroke="currentColor" stroke-width="1.6"/>
+        <circle cx="20" cy="20" r="2.2" fill="currentColor"/>
+      </svg>
+    </div>
+    <div class="tm-arrow" aria-hidden="true"></div>
+    <div class="tm-label"><b id="tm-name">PARIS</b><span id="tm-yield">15 kt</span></div>
+  </div>
+
+  <div id="shockwave-alert" class="hidden">
+    <span class="pulse-dot red"></span>
+    <span id="shockwave-alert-text">—</span>
+  </div>
+
+  <header class="hud-top-left">
+    <div class="brand-lockup" id="brand-reset-btn" title="Return to orbital globe">
+      <h1 class="brand-title">GROUND<span class="brand-slash">//</span>ZERO</h1>
+      <p class="brand-subtitle">Nuclear detonation simulator — true scale</p>
+    </div>
+
+    <div class="target-bar">
+      <div class="search-input-wrap">
+        <span class="search-icon">⌖</span>
+        <input type="text" id="city-search-input" placeholder="Search city or coordinates (e.g. Paris, 48.85, 2.35)…" autocomplete="off" />
+        <button id="city-presets-toggle" class="icon-btn" title="Quick target presets">▾</button>
+      </div>
+      <div id="city-dropdown" class="city-dropdown hidden"></div>
+    </div>
+
+    <div class="view-mode-switcher">
+      <button class="view-btn active" data-view="globe" title="Orbital globe">🌐<span class="vlabel"> ORBITAL GLOBE</span></button>
+      <button class="view-btn" data-view="cinema" title="Cinema panorama">🎬<span class="vlabel"> CINEMA PANORAMA</span></button>
+      <button class="view-btn" data-view="tactical" title="Tactical 3D">🛰️<span class="vlabel"> TACTICAL 3D</span></button>
+      <button class="view-btn" data-view="street" title="Street witness">👁️<span class="vlabel"> STREET WITNESS</span></button>
+    </div>
+
+    <div id="live-telemetry-panel" class="live-telemetry hidden">
+      <div class="telemetry-row">
+        <div class="telemetry-cell"><span class="tel-label">SHOCK FRONT</span><span class="tel-val" id="tel-shock-radius">0 m</span></div>
+        <div class="telemetry-cell"><span class="tel-label">CLOUD TOP</span><span class="tel-val" id="tel-cloud">—</span></div>
+        <div class="telemetry-cell"><span class="tel-label">AT CAMERA</span><span class="tel-val red" id="tel-cam-psi">—</span></div>
+        <div class="telemetry-cell tel-minor"><span class="tel-label">FIREBALL TEMP</span><span class="tel-val amber" id="tel-temp">—</span></div>
+        <div class="telemetry-cell tel-minor"><span class="tel-label">MACH / WIND</span><span class="tel-val red" id="tel-mach">—</span></div>
+        <div class="telemetry-cell tel-minor"><span class="tel-label">CAMERA DIST.</span><span class="tel-val" id="tel-cam-dist">—</span></div>
+      </div>
+    </div>
+
+    <div id="fx-control-panel" class="fx-control-card">
+      <div class="fx-header" id="fx-toggle-header">
+        <span>▾ Render pipeline</span>
+        <span class="fx-badge">WEBGPU · HDR</span>
+      </div>
+      <div class="fx-body collapsed" id="fx-control-body">
+        <div class="fx-row">
+          <label for="fx-quality">Quality</label>
+          <select id="fx-quality" class="fx-select">
+            <option value="auto" selected>Auto</option>
+            <option value="ultra">Ultra</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
+        <div class="fx-row">
+          <label for="fx-imagery">Imagery</label>
+          <select id="fx-imagery" class="fx-select">
+            <option value="sentinel" selected>Sentinel-2 (free)</option>
+            <option value="esri">Esri HD (quota)</option>
+          </select>
+        </div>
+        <div class="fx-row">
+          <label for="fx-relief">Relief</label>
+          <input type="range" id="fx-relief" min="1" max="3" step="0.25" value="1" />
+          <span class="fx-val" id="fx-relief-val">×1.0</span>
+        </div>
+        <div class="fx-row">
+          <label for="fx-bloom">Bloom</label>
+          <div class="fx-check-wrap"><input type="checkbox" id="fx-bloom" checked /></div>
+          <span class="fx-val">HDR</span>
+        </div>
+        <div class="fx-row">
+          <label for="fx-film">Film look</label>
+          <div class="fx-check-wrap"><input type="checkbox" id="fx-film" checked /></div>
+          <span class="fx-val">grain</span>
+        </div>
+        <div class="fx-row">
+          <label for="fx-shake">Camera shake</label>
+          <div class="fx-check-wrap"><input type="checkbox" id="fx-shake" checked /></div>
+          <span class="fx-val"></span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <aside class="hud-top-right">
+    <section class="counter-card">
+      <div class="card-eyebrow">GLOBAL DETONATION COUNTER</div>
+      <div class="counter-number" id="global-counter-value">2,059</div>
+      <div class="counter-meta">
+        <div>incl. 2,058 real ones (1945 → today)</div>
+        <div>your strikes: <span id="user-strikes-count">0</span></div>
+      </div>
+      <div class="counter-casualties">
+        <div>EST. DEATHS: <span id="global-deaths-count">0</span></div>
+        <div>EST. INJURED: <span id="global-injured-count">0</span></div>
+      </div>
+    </section>
+
+    <section class="damage-card">
+      <div class="damage-header-row">
+        <span class="card-eyebrow">DAMAGE REPORT</span>
+        <div class="burst-toggle" title="Height of burst">
+          <button class="burst-btn active" data-burst="airburst">AIRBURST</button>
+          <button class="burst-btn" data-burst="surface">SURFACE</button>
+        </div>
+      </div>
+      <h2 class="weapon-report-title" id="report-weapon-title">—</h2>
+      <div class="weapon-report-coords" id="report-coords-line">—</div>
+      <div class="effect-list">
+        <div class="effect-item" data-zone="1psi">
+          <div class="effect-top"><span class="effect-name"><span class="zone-dot green"></span>1 PSI BLAST</span><span class="effect-radius" id="radius-1psi">—</span></div>
+          <div class="effect-desc">Windows shattered — flying-glass injuries</div>
+        </div>
+        <div class="effect-item" data-zone="thermal">
+          <div class="effect-top"><span class="effect-name"><span class="zone-dot amber"></span>THERMAL RADIATION</span><span class="effect-radius" id="radius-thermal">—</span></div>
+          <div class="effect-desc">3rd-degree burns on exposed skin</div>
+        </div>
+        <div class="effect-item" data-zone="5psi">
+          <div class="effect-top"><span class="effect-name"><span class="zone-dot orange"></span>5 PSI BLAST</span><span class="effect-radius" id="radius-5psi">—</span></div>
+          <div class="effect-desc">Residential buildings collapse</div>
+        </div>
+        <div class="effect-item" data-zone="20psi">
+          <div class="effect-top"><span class="effect-name"><span class="zone-dot red"></span>20 PSI BLAST</span><span class="effect-radius" id="radius-20psi">—</span></div>
+          <div class="effect-desc">Total destruction — near-zero survival</div>
+        </div>
+        <div class="effect-item" data-zone="fireball">
+          <div class="effect-top"><span class="effect-name"><span class="zone-dot white"></span>FIREBALL</span><span class="effect-radius" id="radius-fireball">—</span></div>
+          <div class="effect-desc">Vaporization — hotter than the Sun's surface</div>
+        </div>
+      </div>
+      <div class="casualty-summary">
+        <div class="casualty-row"><span class="cas-label">EST. DEATHS</span><span class="cas-value" id="report-deaths">—</span></div>
+        <div class="casualty-row"><span class="cas-label">EST. INJURED</span><span class="cas-value" id="report-injured">—</span></div>
+        <div class="density-note" id="report-density">—</div>
+      </div>
+    </section>
+  </aside>
+
+  <footer class="hud-bottom-dock">
+    <div class="preset-grid" id="preset-buttons-container"></div>
+    <div class="dock-controls-row">
+      <div class="yield-slider-group">
+        <div class="yield-label-row">
+          <span class="yield-title">YIELD</span>
+          <span class="yield-readout" id="yield-slider-readout">15 kt</span>
+        </div>
+        <div class="slider-track-wrap">
+          <input type="range" id="yield-log-slider" min="0" max="1000" value="454" step="1" />
+          <div class="slider-fill" id="yield-slider-fill"></div>
+        </div>
+      </div>
+      <div class="target-status-box" id="target-status-box" title="Fly to ground zero">
+        <div class="status-title" id="target-status-title">TARGET LOCKED</div>
+        <div class="status-sub" id="target-status-sub">click the globe to retarget</div>
+      </div>
+      <button class="detonate-btn" id="detonate-btn"><span class="rad-symbol">☢</span> DETONATE</button>
+    </div>
+  </footer>
+
+  <!-- Barre de contrôle réduite, visible seulement pendant une détonation -->
+  <div id="mini-bar" class="mini-bar">
+    <button id="mb-play" class="mb-btn" title="Pause / lecture">⏸</button>
+    <span id="mb-time" class="mb-time">T+0.0s</span>
+    <input type="range" id="timeline-scrub-slider" min="0" max="600" step="0.05" value="0" title="Frise temporelle" />
+    <button id="mb-speed" class="mb-btn mb-speed" title="Vitesse de lecture">AUTO</button>
+    <button id="mb-reset" class="mb-btn mb-reset" title="Nouvelle frappe">↺</button>
+  </div>
+
+  <div class="hud-geo" id="hud-geo">—</div>
+
+  <button id="fs-btn" class="fs-btn" title="Plein écran" aria-label="Plein écran">
+    <svg class="fs-enter" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+    <svg class="fs-exit" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+  </button>
+
+  <div class="hud-bottom-right">
+    <button id="audio-toggle-btn" class="meta-link-btn">🔊 AUDIO: ON</button>
+    <span class="meta-sep">·</span>
+    <button id="science-modal-btn" class="meta-link-btn">physics: Glasstone &amp; Dolan (1977)</button>
+    <span class="meta-sep">·</span>
+    <button id="credits-btn" class="meta-link-btn">map data</button>
+    <span class="meta-sep">·</span>
+    <span id="build-tag" class="build-tag"></span>
+  </div>
+
+  <div id="science-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-title">SCIENTIFIC MODEL &amp; REFERENCES</h3>
+        <button id="close-science-modal" class="icon-btn">✕</button>
+      </div>
+      <div class="modal-body" id="modal-body">
+        <article id="about-content" class="about-content">
+          <h2>3D nuclear explosion simulator — true scale</h2>
+          <p>GROUND//ZERO lets you choose any place on Earth, pick a weapon from the 20-ton Davy Crockett to the 50-megaton Tsar Bomba, and watch the detonation unfold in 3D over real satellite imagery, real terrain and real OpenStreetMap buildings. Effects are computed from the empirical scaling laws of Glasstone &amp; Dolan, <em>The Effects of Nuclear Weapons</em> (1977).</p>
+          <div class="sci-grid">
+            <div class="sci-block"><h4>1. Blast (Hopkinson–Cranz)</h4><code>R(ΔP) = R₁(ΔP) · Y^(1/3)</code>
+              <p>Overpressure radii scale with the cube root of yield. Buildings collapse as the shock front reaches them: flattened inside 20 psi, partially down to 5 psi.</p></div>
+            <div class="sci-block"><h4>2. Shock front &amp; sound</h4><code>Sedov–Taylor → Mach 1 (c₀ = 340 m/s)</code>
+              <p>The sound reaches the camera with its real delay: first the light, then silence, then the blast and a long rolling thunder.</p></div>
+            <div class="sci-block"><h4>3. Fireball &amp; mushroom cloud</h4><code>R_fb = 60·Y^0.4 m · t₂max = 0.042·Y^0.44 s</code>
+              <p>Raymarched volume: blackbody fireball, buoyant rise into a toroidal vortex, dust stem and base surge, Wilson condensation shell.</p></div>
+            <div class="sci-block"><h4>4. Sources</h4><ul>
+              <li>Glasstone &amp; Dolan (1977), <em>The Effects of Nuclear Weapons</em>, 3rd ed.</li>
+              <li>Brode (1955), <em>Numerical Solutions of Spherical Blast Waves</em>.</li>
+              <li>Wellerstein, <em>NUKEMAP</em>.</li></ul></div>
+          </div>
+          <h3>Frequently asked questions</h3>
+          <h4>How far does the blast of a Hiroshima-size bomb reach?</h4>
+          <p>For a 15 kt airburst (Little Boy), the model gives a 177 m fireball, total destruction (20 psi) out to 538 m, collapse of residential buildings (5 psi) out to 1.2 km, third-degree burns out to 2.1 km and broken windows (1 psi) out to 3.1 km. The mushroom cloud tops out around 13 km.</p>
+          <h4>And a modern strategic weapon?</h4>
+          <p>A 1.2 Mt B83 airburst reaches 5.2 km for 5 psi and 12.6 km for third-degree burns; its cloud climbs to about 34 km. The 50 Mt Tsar Bomba gives a 4.5 km fireball, 17.9 km for 5 psi, burns out to 54 km and a cloud about 65 km high.</p>
+          <h4>Why does the sound arrive after the flash?</h4>
+          <p>Light is instantaneous at these distances, but the shock wave travels at about the speed of sound: 20 km away, the blast arrives roughly a minute after the flash. The simulator reproduces that delay.</p>
+          <h4>Is it accurate?</h4>
+          <p>Radii follow published scaling laws; casualties use a simplified population-density model. It is an educational visualisation, not a planning tool.</p>
+          <p class="about-data">Map data: Sentinel-2 cloudless (EOX), AWS Terrain Tiles, OpenFreeMap / OpenMapTiles © OpenStreetMap contributors.</p>
+        </article>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
