@@ -162,6 +162,55 @@ const saveStats = () => {
   try { localStorage.setItem('groundzero_globe_stats', JSON.stringify({ strikes: state.strikes, deaths: state.deaths, injured: state.injured })); } catch { /* ignore */ }
 };
 
+// ---------- Compteur mondial (service /api du serveur ; repli local si indisponible) ----------
+
+const API = `${import.meta.env.BASE_URL}api/`;
+state.global = null; // { strikes, deaths, injured } partagés par tous les visiteurs
+
+function renderCounter() {
+  const g = state.global;
+  // 2 058 essais et emplois réels + les frappes simulées sur ce site (ou les tiennes hors ligne)
+  $('#global-counter-value').textContent = fmt(HISTORICAL_DETONATIONS_BASE + (g ? g.strikes : state.strikes));
+  $('#counter-detail').textContent = g
+    ? `simulated here: ${fmt(g.strikes)} · yours: ${fmt(state.strikes)}`
+    : `your strikes: ${fmt(state.strikes)}`;
+  $('#global-deaths-count').textContent = fmt(g ? g.deaths : state.deaths);
+  $('#global-injured-count').textContent = fmt(g ? g.injured : state.injured);
+}
+
+function acceptStats(d) {
+  if (d && Number.isFinite(d.strikes)) { state.global = { strikes: d.strikes, deaths: d.deaths, injured: d.injured }; renderCounter(); }
+}
+
+async function fetchStats() {
+  try {
+    const r = await fetch(`${API}stats`, { cache: 'no-store' });
+    if (r.ok) acceptStats(await r.json());
+  } catch { /* hors ligne : compteur local */ }
+}
+
+// le serveur recalcule lui-même les victimes : on n'envoie que la puissance, la position et le type d'explosion
+async function postStrike(e) {
+  try {
+    const r = await fetch(`${API}strike`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ yieldKt: state.yieldKt, lat: state.lat, lon: state.lon, burst: state.burst }),
+    });
+    if (r.ok || r.status === 429) acceptStats(await r.json());
+  } catch {
+    // service injoignable : on ajoute la frappe localement pour ne pas figer l'affichage
+    if (state.global) {
+      state.global.strikes++; state.global.deaths += e.casualties.deaths; state.global.injured += e.casualties.injured;
+      renderCounter();
+    }
+  }
+}
+
+fetchStats();
+setInterval(() => { if (!document.hidden) fetchStats(); }, 30000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) fetchStats(); });
+
 // ---------- HUD ----------
 
 const fmt = (n) => Math.round(n).toLocaleString('en-US');
@@ -189,10 +238,7 @@ function refresh() {
   $('#yield-slider-fill').style.width = `${(yieldToSlider(state.yieldKt) / 10).toFixed(1)}%`;
   $('#target-status-title').textContent = loc ? `TARGET: ${loc.toUpperCase()}` : 'TARGET LOCKED';
   $('#target-status-sub').textContent = `${coords} · ${state.view === 'globe' ? 'click to dive' : 'click the ground to retarget'}`;
-  $('#global-counter-value').textContent = fmt(HISTORICAL_DETONATIONS_BASE + 1 + state.strikes);
-  $('#user-strikes-count').textContent = fmt(state.strikes);
-  $('#global-deaths-count').textContent = fmt(state.deaths);
-  $('#global-injured-count').textContent = fmt(state.injured);
+  renderCounter();
   if (!state.detonated) {
     explosion.setTarget(state.lat, state.lon);
     explosion.setEffects(e);
@@ -388,6 +434,7 @@ function detonate() {
   state.deaths += e.casualties.deaths;
   state.injured += e.casualties.injured;
   saveStats();
+  postStrike(e);
   refresh();
   const counter = $('#global-counter-value');
   counter.style.transform = 'scale(1.14)';

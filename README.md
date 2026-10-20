@@ -70,3 +70,32 @@ Code sous licence **MIT** (voir `LICENSE`).
 Les données cartographiques chargées à l'exécution gardent leurs propres licences et attributions :
 Sentinel-2 cloudless (EOX, CC BY-NC-SA 4.0), Esri World Imagery, AWS Terrain Tiles,
 OpenFreeMap / OpenMapTiles © contributeurs OpenStreetMap (ODbL).
+
+## Compteur mondial (`server/`)
+
+Petit service Python sans dépendance (`server/counter.py`) qui totalise les frappes de tous les visiteurs.
+
+- `GET /stats` → `{ strikes, deaths, injured }` ; `POST /strike` ← `{ yieldKt, lat, lon, burst }`.
+- Le serveur **recalcule lui-même les victimes** (portage exact de `src/nuke/physics.js`, table `server/cities.json`) :
+  le navigateur n'envoie jamais de chiffres, impossible de les gonfler.
+- Anti-spam : 1 frappe / 4 s et 40 / heure par adresse IP ; corps limité à 1 Ko ; valeurs validées.
+- Stockage atomique dans un fichier JSON ; écoute en local uniquement.
+- `server/gz-counter.service` : unité systemd isolée (utilisateur dynamique, système en lecture seule, 64 Mo max).
+
+Installation (sur le serveur) :
+
+```bash
+sudo install -d /opt/ground-zero-counter && sudo install -m 644 server/counter.py server/cities.json /opt/ground-zero-counter/
+sudo install -m 644 server/gz-counter.service /etc/systemd/system/ && sudo systemctl enable --now gz-counter
+```
+
+Caddy relaie l'API sous le chemin du site :
+
+```
+handle_path /ground-zero/api/* {
+	reverse_proxy 127.0.0.1:8787
+}
+```
+
+Si l'API est injoignable (développement local, panne), la page retombe sur le compteur local du navigateur.
+`server/cities.json` se régénère depuis `src/nuke/physics.js` si la liste de villes change.

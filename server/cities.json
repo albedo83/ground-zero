@@ -1,0 +1,303 @@
+[
+ {
+  "name": "Paris, France",
+  "lat": 48.8566,
+  "lon": 2.3522,
+  "density": 20500,
+  "tier": "metropolis"
+ },
+ {
+  "name": "Lyon, France",
+  "lat": 45.764,
+  "lon": 4.8357,
+  "density": 10800,
+  "tier": "urban"
+ },
+ {
+  "name": "Marseille, France",
+  "lat": 43.2965,
+  "lon": 5.3698,
+  "density": 6800,
+  "tier": "urban"
+ },
+ {
+  "name": "Bordeaux, France",
+  "lat": 44.8378,
+  "lon": -0.5792,
+  "density": 5400,
+  "tier": "urban"
+ },
+ {
+  "name": "Toulouse, France",
+  "lat": 43.6047,
+  "lon": 1.4442,
+  "density": 4900,
+  "tier": "urban"
+ },
+ {
+  "name": "Nice, France",
+  "lat": 43.7102,
+  "lon": 7.262,
+  "density": 4800,
+  "tier": "urban"
+ },
+ {
+  "name": "Lille, France",
+  "lat": 50.6292,
+  "lon": 3.0573,
+  "density": 6700,
+  "tier": "urban"
+ },
+ {
+  "name": "Nantes, France",
+  "lat": 47.2184,
+  "lon": -1.5536,
+  "density": 5100,
+  "tier": "urban"
+ },
+ {
+  "name": "Strasbourg, France",
+  "lat": 48.5734,
+  "lon": 7.7521,
+  "density": 4600,
+  "tier": "urban"
+ },
+ {
+  "name": "London, UK",
+  "lat": 51.5074,
+  "lon": -0.1278,
+  "density": 11200,
+  "tier": "metropolis"
+ },
+ {
+  "name": "Madrid, Spain",
+  "lat": 40.4168,
+  "lon": -3.7038,
+  "density": 8400,
+  "tier": "metropolis"
+ },
+ {
+  "name": "Barcelona, Spain",
+  "lat": 41.3874,
+  "lon": 2.1686,
+  "density": 16200,
+  "tier": "metropolis"
+ },
+ {
+  "name": "Brussels, Belgium",
+  "lat": 50.8503,
+  "lon": 4.3517,
+  "density": 7500,
+  "tier": "urban"
+ },
+ {
+  "name": "Amsterdam, Netherlands",
+  "lat": 52.3676,
+  "lon": 4.9041,
+  "density": 5300,
+  "tier": "urban"
+ },
+ {
+  "name": "Geneva, Switzerland",
+  "lat": 46.2044,
+  "lon": 6.1432,
+  "density": 12600,
+  "tier": "urban"
+ },
+ {
+  "name": "Berlin, Germany",
+  "lat": 52.52,
+  "lon": 13.405,
+  "density": 4200,
+  "tier": "urban"
+ },
+ {
+  "name": "Munich, Germany",
+  "lat": 48.1351,
+  "lon": 11.582,
+  "density": 4800,
+  "tier": "urban"
+ },
+ {
+  "name": "Rome, Italy",
+  "lat": 41.9028,
+  "lon": 12.4964,
+  "density": 6200,
+  "tier": "metropolis"
+ },
+ {
+  "name": "Milan, Italy",
+  "lat": 45.4642,
+  "lon": 9.19,
+  "density": 7600,
+  "tier": "metropolis"
+ },
+ {
+  "name": "Vienna, Austria",
+  "lat": 48.2082,
+  "lon": 16.3738,
+  "density": 4700,
+  "tier": "urban"
+ },
+ {
+  "name": "Warsaw, Poland",
+  "lat": 52.2297,
+  "lon": 21.0122,
+  "density": 3600,
+  "tier": "urban"
+ },
+ {
+  "name": "Kyiv, Ukraine",
+  "lat": 50.4501,
+  "lon": 30.5234,
+  "density": 3500,
+  "tier": "urban"
+ },
+ {
+  "name": "Moscow, Russia",
+  "lat": 55.7558,
+  "lon": 37.6173,
+  "density": 9800,
+  "tier": "metropolis"
+ },
+ {
+  "name": "Istanbul, Turkey",
+  "lat": 41.0082,
+  "lon": 28.9784,
+  "density": 13400,
+  "tier": "metropolis"
+ },
+ {
+  "name": "New York, USA",
+  "lat": 40.7128,
+  "lon": -74.006,
+  "density": 11300,
+  "tier": "metropolis"
+ },
+ {
+  "name": "Washington D.C., USA",
+  "lat": 38.8977,
+  "lon": -77.0365,
+  "density": 4400,
+  "tier": "urban"
+ },
+ {
+  "name": "Los Angeles, USA",
+  "lat": 34.0522,
+  "lon": -118.2437,
+  "density": 3300,
+  "tier": "urban"
+ },
+ {
+  "name": "San Francisco, USA",
+  "lat": 37.7749,
+  "lon": -122.4194,
+  "density": 7200,
+  "tier": "urban"
+ },
+ {
+  "name": "Chicago, USA",
+  "lat": 41.8781,
+  "lon": -87.6298,
+  "density": 4600,
+  "tier": "urban"
+ },
+ {
+  "name": "Tokyo, Japan",
+  "lat": 35.6895,
+  "lon": 139.6917,
+  "density": 15400,
+  "tier": "metropolis"
+ },
+ {
+  "name": "Hiroshima, Japan",
+  "lat": 34.3946,
+  "lon": 132.4547,
+  "density": 4600,
+  "tier": "urban"
+ },
+ {
+  "name": "Nagasaki, Japan",
+  "lat": 32.7737,
+  "lon": 129.8633,
+  "density": 3900,
+  "tier": "urban"
+ },
+ {
+  "name": "Seoul, South Korea",
+  "lat": 37.5665,
+  "lon": 126.978,
+  "density": 16000,
+  "tier": "metropolis"
+ },
+ {
+  "name": "Beijing, China",
+  "lat": 39.9042,
+  "lon": 116.4074,
+  "density": 13100,
+  "tier": "metropolis"
+ },
+ {
+  "name": "Mumbai, India",
+  "lat": 19.076,
+  "lon": 72.8777,
+  "density": 24500,
+  "tier": "metropolis"
+ },
+ {
+  "name": "Dubai, UAE",
+  "lat": 25.2048,
+  "lon": 55.2708,
+  "density": 5800,
+  "tier": "urban"
+ },
+ {
+  "name": "Cairo, Egypt",
+  "lat": 30.0444,
+  "lon": 31.2357,
+  "density": 19300,
+  "tier": "metropolis"
+ },
+ {
+  "name": "São Paulo, Brazil",
+  "lat": -23.5505,
+  "lon": -46.6333,
+  "density": 8100,
+  "tier": "metropolis"
+ },
+ {
+  "name": "Sydney, Australia",
+  "lat": -33.8688,
+  "lon": 151.2093,
+  "density": 4800,
+  "tier": "urban"
+ },
+ {
+  "name": "Bikini Atoll, Marshall Islands",
+  "lat": 11.5975,
+  "lon": 165.3772,
+  "density": 8,
+  "tier": "test-site"
+ },
+ {
+  "name": "Novaya Zemlya, Arctic",
+  "lat": 73.8072,
+  "lon": 54.9817,
+  "density": 2,
+  "tier": "test-site"
+ },
+ {
+  "name": "Trinity Site, New Mexico",
+  "lat": 33.6773,
+  "lon": -106.4754,
+  "density": 12,
+  "tier": "test-site"
+ },
+ {
+  "name": "Sudan Desert (Ref. Screenshot)",
+  "lat": 16.49,
+  "lon": 29.21,
+  "density": 35,
+  "tier": "rural"
+ }
+]
