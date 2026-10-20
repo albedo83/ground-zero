@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#020306" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -49,9 +49,7 @@
     "sameAs": ["https://github.com/albedo83/ground-zero"]
   }
   </script>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="preload" href="/fonts/JetBrainsMono-latin.woff2" as="font" type="font/woff2" crossorigin />
 </head>
 <body>
   <noscript>
@@ -60,17 +58,22 @@
       <p>This simulator needs JavaScript and a WebGPU or WebGL 2 browser. It renders true-scale nuclear explosions in 3D over real terrain, satellite imagery and OpenStreetMap buildings, with blast radii based on Glasstone &amp; Dolan (1977).</p>
     </div>
   </noscript>
-  <div id="canvas-container"><canvas id="view"></canvas></div>
+  <a class="skip-link" href="#city-search-input">Skip to target search</a>
+  <div id="sr-live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+  <main id="canvas-container" aria-label="3D globe">
+    <canvas id="view" tabindex="0" role="application" aria-roledescription="3D globe"
+      aria-label="Interactive 3D globe. Arrow keys pan, plus and minus zoom, Page Up and Page Down tilt, Q and E rotate. Press Enter to set the target at the centre of the view."></canvas>
+  </main>
 
-  <div id="thermal-flash-overlay"></div>
-  <div id="rotate-hint"><div class="rotate-icon">📱</div><div>Rotate your phone to landscape</div><div class="rotate-sub">GROUND//ZERO is designed for a wide screen</div></div>
+  <div id="thermal-flash-overlay" aria-hidden="true"></div>
+  <div id="rotate-hint" role="note"><div class="rotate-icon">📱</div><div>Rotate your phone to landscape</div><div class="rotate-sub">GROUND//ZERO is designed for a wide screen</div></div>
   <div id="letterbox" class="letterbox"></div>
 
   <!-- Noms des villes (projetés à chaque image) -->
   <div id="city-labels" class="city-labels" aria-hidden="true"></div>
 
   <!-- Réticule de cible projeté à l'écran (taille constante quel que soit le zoom) -->
-  <div id="target-marker" class="target-marker">
+  <div id="target-marker" class="target-marker" aria-hidden="true">
     <div class="tm-reticle">
       <span class="tm-lock"></span>
       <span class="tm-pulse"></span>
@@ -84,13 +87,13 @@
     <div class="tm-label"><b id="tm-name">PARIS</b><span id="tm-yield">15 kt</span></div>
   </div>
 
-  <div id="shockwave-alert" class="hidden">
+  <div id="shockwave-alert" class="hidden" aria-hidden="true">
     <span class="pulse-dot red"></span>
     <span id="shockwave-alert-text">—</span>
   </div>
 
   <header class="hud-top-left">
-    <div class="brand-lockup" id="brand-reset-btn" title="Return to orbital globe">
+    <div class="brand-lockup" id="brand-reset-btn" title="Return to orbital globe" role="button" tabindex="0">
       <h1 class="brand-title">GROUND<span class="brand-slash">//</span>ZERO</h1>
       <p class="brand-subtitle">Nuclear detonation simulator — true scale</p>
     </div>
@@ -98,20 +101,20 @@
     <div class="target-bar">
       <div class="search-input-wrap">
         <span class="search-icon">⌖</span>
-        <input type="text" id="city-search-input" placeholder="Search city or coordinates (e.g. Paris, 48.85, 2.35)…" autocomplete="off" />
-        <button id="city-presets-toggle" class="icon-btn" title="Quick target presets">▾</button>
+        <input type="search" id="city-search-input" placeholder="Search city or coordinates (e.g. Paris, 48.85, 2.35)…" autocomplete="off" role="combobox" aria-autocomplete="list" aria-label="Search a target city or coordinates" aria-controls="city-dropdown" aria-expanded="false" />
+        <button id="city-presets-toggle" class="icon-btn" title="Quick target presets" aria-label="Show target presets" aria-controls="city-dropdown" aria-expanded="false">▾</button>
       </div>
-      <div id="city-dropdown" class="city-dropdown hidden"></div>
+      <div id="city-dropdown" class="city-dropdown hidden" role="group" aria-label="Target suggestions"></div>
     </div>
 
-    <div class="view-mode-switcher">
-      <button class="view-btn active" data-view="globe" title="Orbital globe">🌐<span class="vlabel"> ORBITAL GLOBE</span></button>
-      <button class="view-btn" data-view="cinema" title="Cinema panorama">🎬<span class="vlabel"> CINEMA PANORAMA</span></button>
-      <button class="view-btn" data-view="tactical" title="Tactical 3D">🛰️<span class="vlabel"> TACTICAL 3D</span></button>
-      <button class="view-btn" data-view="street" title="Street witness">👁️<span class="vlabel"> STREET WITNESS</span></button>
+    <div class="view-mode-switcher" role="group" aria-label="Camera view">
+      <button class="view-btn active" data-view="globe" title="Orbital globe" aria-label="Orbital globe view" aria-pressed="true">🌐<span class="vlabel"> ORBITAL GLOBE</span></button>
+      <button class="view-btn" data-view="cinema" title="Cinema panorama" aria-label="Cinema panorama view" aria-pressed="false">🎬<span class="vlabel"> CINEMA PANORAMA</span></button>
+      <button class="view-btn" data-view="tactical" title="Tactical 3D" aria-label="Tactical 3D view" aria-pressed="false">🛰️<span class="vlabel"> TACTICAL 3D</span></button>
+      <button class="view-btn" data-view="street" title="Street witness" aria-label="Street witness view" aria-pressed="false">👁️<span class="vlabel"> STREET WITNESS</span></button>
     </div>
 
-    <div id="live-telemetry-panel" class="live-telemetry hidden">
+    <div id="live-telemetry-panel" class="live-telemetry hidden" role="group" aria-label="Live telemetry">
       <div class="telemetry-row">
         <div class="telemetry-cell"><span class="tel-label">SHOCK FRONT</span><span class="tel-val" id="tel-shock-radius">0 m</span></div>
         <div class="telemetry-cell"><span class="tel-label">CLOUD TOP</span><span class="tel-val" id="tel-cloud">—</span></div>
@@ -184,7 +187,7 @@
     </section>
 
     <section class="damage-card">
-      <div class="damage-header-row">
+      <div class="damage-header-row" aria-controls="effect-list">
         <span class="card-eyebrow">DAMAGE REPORT</span>
         <div class="burst-toggle" title="Height of burst">
           <button class="burst-btn active" data-burst="airburst">AIRBURST</button>
@@ -193,24 +196,24 @@
       </div>
       <h2 class="weapon-report-title" id="report-weapon-title">—</h2>
       <div class="weapon-report-coords" id="report-coords-line">—</div>
-      <div class="effect-list">
-        <div class="effect-item" data-zone="1psi">
+      <div class="effect-list" id="effect-list">
+        <div class="effect-item" data-zone="1psi" role="button" tabindex="0">
           <div class="effect-top"><span class="effect-name"><span class="zone-dot green"></span>1 PSI BLAST</span><span class="effect-radius" id="radius-1psi">—</span></div>
           <div class="effect-desc">Windows shattered — flying-glass injuries</div>
         </div>
-        <div class="effect-item" data-zone="thermal">
+        <div class="effect-item" data-zone="thermal" role="button" tabindex="0">
           <div class="effect-top"><span class="effect-name"><span class="zone-dot amber"></span>THERMAL RADIATION</span><span class="effect-radius" id="radius-thermal">—</span></div>
           <div class="effect-desc">3rd-degree burns on exposed skin</div>
         </div>
-        <div class="effect-item" data-zone="5psi">
+        <div class="effect-item" data-zone="5psi" role="button" tabindex="0">
           <div class="effect-top"><span class="effect-name"><span class="zone-dot orange"></span>5 PSI BLAST</span><span class="effect-radius" id="radius-5psi">—</span></div>
           <div class="effect-desc">Residential buildings collapse</div>
         </div>
-        <div class="effect-item" data-zone="20psi">
+        <div class="effect-item" data-zone="20psi" role="button" tabindex="0">
           <div class="effect-top"><span class="effect-name"><span class="zone-dot red"></span>20 PSI BLAST</span><span class="effect-radius" id="radius-20psi">—</span></div>
           <div class="effect-desc">Total destruction — near-zero survival</div>
         </div>
-        <div class="effect-item" data-zone="fireball">
+        <div class="effect-item" data-zone="fireball" role="button" tabindex="0">
           <div class="effect-top"><span class="effect-name"><span class="zone-dot white"></span>FIREBALL</span><span class="effect-radius" id="radius-fireball">—</span></div>
           <div class="effect-desc">Vaporization — hotter than the Sun's surface</div>
         </div>
@@ -232,11 +235,11 @@
           <span class="yield-readout" id="yield-slider-readout">15 kt</span>
         </div>
         <div class="slider-track-wrap">
-          <input type="range" id="yield-log-slider" min="0" max="1000" value="454" step="1" />
+          <input type="range" id="yield-log-slider" min="0" max="1000" value="454" step="1" aria-label="Yield" aria-valuetext="15 kilotons" />
           <div class="slider-fill" id="yield-slider-fill"></div>
         </div>
       </div>
-      <div class="target-status-box" id="target-status-box" title="Fly to ground zero">
+      <div class="target-status-box" id="target-status-box" title="Fly to ground zero" role="button" tabindex="0">
         <div class="status-title" id="target-status-title">TARGET LOCKED</div>
         <div class="status-sub" id="target-status-sub">click the globe to retarget</div>
       </div>
@@ -245,22 +248,23 @@
   </footer>
 
   <!-- Barre de contrôle réduite, visible seulement pendant une détonation -->
-  <div id="mini-bar" class="mini-bar">
-    <button id="mb-play" class="mb-btn" title="Pause / lecture">⏸</button>
-    <span id="mb-time" class="mb-time">T+0.0s</span>
-    <input type="range" id="timeline-scrub-slider" min="0" max="1800" step="0.05" value="0" title="Frise temporelle" />
-    <button id="mb-speed" class="mb-btn mb-speed" title="Vitesse de lecture">AUTO</button>
-    <button id="mb-reset" class="mb-btn mb-reset" title="Nouvelle frappe">↺</button>
+  <div id="mini-bar" class="mini-bar" role="region" aria-label="Playback controls">
+    <button id="mb-play" class="mb-btn" title="Pause" aria-label="Pause">⏸</button>
+    <span id="mb-time" class="mb-time" aria-hidden="true">T+0.0s</span>
+    <label class="sr-only" for="timeline-scrub-slider">Timeline</label>
+    <input type="range" id="timeline-scrub-slider" min="0" max="1800" step="0.05" value="0" aria-valuetext="T plus 0 seconds" />
+    <button id="mb-speed" class="mb-btn mb-speed" title="Playback speed" aria-label="Playback speed: auto">AUTO</button>
+    <button id="mb-reset" class="mb-btn mb-reset" title="New strike" aria-label="Reset and prepare a new strike">↺</button>
   </div>
 
-  <div class="hud-geo" id="hud-geo">—</div>
+  <div class="hud-geo" id="hud-geo" aria-hidden="true">—</div>
 
   <button id="fs-btn" class="fs-btn" title="Plein écran" aria-label="Plein écran">
     <svg class="fs-enter" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
     <svg class="fs-exit" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5" fill="none" stroke="currentColor" stroke-width="2"/></svg>
   </button>
 
-  <div class="hud-bottom-right">
+  <nav class="hud-bottom-right" aria-label="Settings and links">
     <button id="audio-toggle-btn" class="meta-link-btn">🔊 AUDIO: ON</button>
     <span class="meta-sep">·</span>
     <button id="science-modal-btn" class="meta-link-btn">physics: Glasstone &amp; Dolan (1977)</button>
@@ -273,13 +277,13 @@
     </a>
     <span class="meta-sep">·</span>
     <span id="build-tag" class="build-tag"></span>
-  </div>
+  </nav>
 
   <div id="science-modal" class="modal-backdrop hidden">
-    <div class="modal-card">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <div class="modal-header">
         <h3 id="modal-title">SCIENTIFIC MODEL &amp; REFERENCES</h3>
-        <button id="close-science-modal" class="icon-btn">✕</button>
+        <button id="close-science-modal" class="icon-btn" aria-label="Close">✕</button>
       </div>
       <div class="modal-body" id="modal-body">
         <article id="about-content" class="about-content">
