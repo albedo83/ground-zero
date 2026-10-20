@@ -52,6 +52,7 @@ export class EarthControls {
     this.minClearance = 15;
     this.onClick = null;
     this.onUserInput = null;
+    this.onKeyTarget = null;
     this.bind();
   }
 
@@ -163,6 +164,40 @@ export class EarthControls {
       this.zoomAt(e.clientX, e.clientY, Math.exp(delta * 0.0018));
     }, { passive: false });
     el.addEventListener('dblclick', (e) => this.diveAt(e.clientX, e.clientY));
+
+    // clavier (canvas focalisé) : flèches = déplacer, +/- = zoom, PgPréc/PgSuiv = inclinaison,
+    // Q/E = rotation, Entrée = cible au centre de la vue
+    el.addEventListener('keydown', (e) => {
+      const d = this.desired;
+      const step = (d.range / A) * 0.12 + 1e-5;          // pas proportionnel à l'altitude
+      const ch = Math.cos(d.heading), sh = Math.sin(d.heading);
+      let handled = true;
+      const move = (f, r) => {
+        d.lat = THREE.MathUtils.clamp(d.lat + (f * ch - r * sh) * step, -1.5, 1.5);
+        d.lon += ((f * sh + r * ch) * step) / Math.max(0.2, Math.cos(d.lat));
+      };
+      switch (e.key) {
+        case 'ArrowUp': move(1, 0); break;
+        case 'ArrowDown': move(-1, 0); break;
+        case 'ArrowLeft': move(0, -1); break;
+        case 'ArrowRight': move(0, 1); break;
+        case '+': case '=': d.range = THREE.MathUtils.clamp(d.range * 0.7, MIN_RANGE, MAX_RANGE); break;
+        case '-': case '_': d.range = THREE.MathUtils.clamp(d.range / 0.7, MIN_RANGE, MAX_RANGE); break;
+        case 'PageUp': d.pitch = THREE.MathUtils.clamp(d.pitch + 0.08, 0, this.pitchLimit()); break;
+        case 'PageDown': d.pitch = THREE.MathUtils.clamp(d.pitch - 0.08, 0, this.pitchLimit()); break;
+        case 'q': case 'Q': d.heading -= 0.12; break;
+        case 'e': case 'E': d.heading += 0.12; break;
+        case 'Enter': this.onKeyTarget?.(); break;
+        default: handled = false;
+      }
+      if (handled) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.flight = null;
+        this.onUserInput?.();
+        d.pitch = Math.min(d.pitch, this.pitchLimit());
+      }
+    });
   }
 
   diveAt(x, y) {

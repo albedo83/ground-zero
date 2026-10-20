@@ -103,3 +103,22 @@ handle_path /ground-zero/api/* {
 
 Si l'API est injoignable (développement local, panne), la page retombe sur le compteur local du navigateur.
 `server/cities.json` se régénère depuis `src/nuke/physics.js` si la liste de villes change.
+
+## Sécurité
+
+- En-têtes servis par Caddy : HSTS (preload), **CSP stricte** sans `unsafe-inline` ni `eval`
+  (scripts/styles du site uniquement ; connexions limitées aux fournisseurs de tuiles et de recherche),
+  `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy` minimale, COOP/CORP `same-origin`.
+- Polices auto-hébergées (`public/fonts`, SIL OFL) : aucune requête vers Google Fonts.
+- API du compteur : JSON obligatoire, origine vérifiée (`GZ_ALLOWED_ORIGINS`), anti-spam par IP,
+  victimes recalculées côté serveur.
+- Tester la CSP en local : `npx vite build --base=/ground-zero/ && GZ_CSP="…" npx vite preview --base=/ground-zero/`.
+
+## Accessibilité (WCAG 2.2 AA)
+
+Audit axe-core : 0 violation (page, fenêtre modale, détonation, mobile).
+Zoom autorisé, repères (landmarks), noms accessibles, focus visible, lien d'évitement,
+fenêtre modale avec piège de focus et Échap, annonces `aria-live` (cible, détonation, arrivée du souffle),
+cibles tactiles ≥ 24 px, contraste ≥ 4,5:1, `prefers-reduced-motion` (pas de tremblement, flash adouci).
+Globe au clavier : flèches (déplacer), `+`/`-` (zoom), PgPréc/PgSuiv (inclinaison), `Q`/`E` (rotation),
+Entrée (cible au centre).

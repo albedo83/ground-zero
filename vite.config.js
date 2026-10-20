@@ -9,4 +9,6 @@ export default defineConfig({
   build: { target: 'esnext' },
   worker: { format: 'es' },
   server: { host: '127.0.0.1', port: 5180, strictPort: true },
+  // aperçu du build avec la politique de sécurité de production (test de la CSP en local)
+  preview: { host: '127.0.0.1', port: 4173, headers: { 'Content-Security-Policy': process.env.GZ_CSP || '' } },
 });

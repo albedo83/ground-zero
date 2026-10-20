@@ -164,6 +164,19 @@ const saveStats = () => {
   try { localStorage.setItem('groundzero_globe_stats', JSON.stringify({ strikes: state.strikes, deaths: state.deaths, injured: state.injured })); } catch { /* ignore */ }
 };
 
+// ---------- Accessibilité ----------
+
+// annonces ponctuelles pour lecteurs d'écran (zone role=status, hors de l'affichage)
+let announceTimer = null;
+function announce(text) {
+  const el = $('#sr-live');
+  el.textContent = '';
+  clearTimeout(announceTimer);
+  announceTimer = setTimeout(() => { el.textContent = text; }, 60);
+}
+// « réduire les animations » : pas de tremblement, flash adouci
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
 // ---------- Compteur mondial (service /api du serveur ; repli local si indisponible) ----------
 
 const API = `${import.meta.env.BASE_URL}api/`;
@@ -236,6 +249,7 @@ function refresh() {
   $('#report-injured').textContent = fmt(e.casualties.injured);
   $('#report-density').textContent = `density: ${e.casualties.densityLabel} — simplified model`;
   $('#yield-slider-readout').textContent = e.yieldFormatted;
+  $('#yield-log-slider').setAttribute('aria-valuetext', e.yieldFormatted.replace(' kt', ' kilotons').replace(' Mt', ' megatons').replace(' t', ' tons'));
   $('#yield-log-slider').value = String(yieldToSlider(state.yieldKt));
   $('#yield-slider-fill').style.width = `${(yieldToSlider(state.yieldKt) / 10).toFixed(1)}%`;
   $('#target-status-title').textContent = loc ? `TARGET: ${loc.toUpperCase()}` : 'TARGET LOCKED';
@@ -297,6 +311,7 @@ function setTarget(lat, lon, name = null, { fly = true } = {}) {
   state.lat = lat; state.lon = lon; state.targetName = name;
   refresh();
   lockTargetMarker();
+  announce(`Target set: ${name || fmtCoords(lat, lon)}.`);
   if (!name) reverseGeocode(lat, lon);
   if (fly) setView(state.view);
 }
@@ -325,17 +340,20 @@ function renderDropdown(filter = '') {
   const q = filter.trim().toLowerCase();
   elDrop.innerHTML = '';
   for (const c of TARGET_CITIES.filter((c) => !q || c.name.toLowerCase().includes(q))) {
-    const row = document.createElement('div');
+    const row = document.createElement('button');
+    row.type = 'button';
     row.className = 'city-option';
     row.innerHTML = `<span>⌖ ${c.name}</span><span class="city-option-meta">${c.density.toLocaleString('en-US')}/km²</span>`;
-    row.onclick = () => { elDrop.classList.add('hidden'); elSearch.value = c.name; setTarget(c.lat, c.lon, c.name.toUpperCase()); };
+    row.onclick = () => { closeDropdown(); elSearch.value = c.name; setTarget(c.lat, c.lon, c.name.toUpperCase()); };
     elDrop.appendChild(row);
   }
   if (q.length > 2) {
-    const row = document.createElement('div');
+    const row = document.createElement('button');
+    row.type = 'button';
     row.className = 'city-option';
-    row.innerHTML = `<span>🌐 Search "${filter.replace(/</g, '&lt;')}" worldwide (Enter)</span><span class="city-option-meta">Photon / OSM</span>`;
-    row.onclick = () => { elDrop.classList.add('hidden'); geocode(filter); };
+    row.innerHTML = '<span></span><span class="city-option-meta">Photon / OSM</span>';
+    row.firstChild.textContent = `🌐 Search "${filter}" worldwide (Enter)`;
+    row.onclick = () => { closeDropdown(); geocode(filter); };
     elDrop.appendChild(row);
   }
 }
@@ -355,23 +373,50 @@ async function geocode(raw) {
     setTarget(lat, lon, [p.name, p.country].filter(Boolean).join(', ').toUpperCase());
   } catch { /* hors ligne */ }
 }
-elSearch.addEventListener('focus', () => { renderDropdown(elSearch.value); elDrop.classList.remove('hidden'); });
-elSearch.addEventListener('input', () => { renderDropdown(elSearch.value); elDrop.classList.remove('hidden'); });
+function openDropdown(filter) {
+  renderDropdown(filter);
+  elDrop.classList.remove('hidden');
+  elSearch.setAttribute('aria-expanded', 'true');
+  $('#city-presets-toggle').setAttribute('aria-expanded', 'true');
+}
+function closeDropdown() {
+  elDrop.classList.add('hidden');
+  elSearch.setAttribute('aria-expanded', 'false');
+  $('#city-presets-toggle').setAttribute('aria-expanded', 'false');
+}
+elSearch.addEventListener('focus', () => openDropdown(elSearch.value));
+elSearch.addEventListener('input', () => openDropdown(elSearch.value));
 elSearch.addEventListener('keydown', (e) => {
   e.stopPropagation();
-  if (e.key === 'Enter') { elDrop.classList.add('hidden'); geocode(elSearch.value); elSearch.blur(); }
-  if (e.key === 'Escape') { elDrop.classList.add('hidden'); elSearch.blur(); }
+  if (e.key === 'Enter') { closeDropdown(); geocode(elSearch.value); }
+  if (e.key === 'Escape') { closeDropdown(); }
+  if (e.key === 'ArrowDown') { e.preventDefault(); elDrop.querySelector('.city-option')?.focus(); }
+});
+// flèches haut/bas dans la liste, Échap pour revenir au champ
+elDrop.addEventListener('keydown', (e) => {
+  e.stopPropagation();
+  const items = [...elDrop.querySelectorAll('.city-option')];
+  const i = items.indexOf(document.activeElement);
+  if (e.key === 'ArrowDown') { e.preventDefault(); items[Math.min(items.length - 1, i + 1)]?.focus(); }
+  if (e.key === 'ArrowUp') { e.preventDefault(); (i <= 0 ? elSearch : items[i - 1]).focus(); }
+  if (e.key === 'Escape') { closeDropdown(); elSearch.focus(); }
 });
 $('#city-presets-toggle').onclick = () => {
-  if (elDrop.classList.contains('hidden')) { renderDropdown(''); elDrop.classList.remove('hidden'); } else elDrop.classList.add('hidden');
+  if (elDrop.classList.contains('hidden')) openDropdown(''); else closeDropdown();
 };
-document.addEventListener('click', (e) => { if (!e.target.closest('.target-bar')) elDrop.classList.add('hidden'); });
+document.addEventListener('click', (e) => { if (!e.target.closest('.target-bar')) closeDropdown(); });
+document.addEventListener('focusin', (e) => { if (!e.target.closest('.target-bar')) closeDropdown(); });
 
 controls.onClick = (lat, lon) => {
   if (state.detonated || state.armed) return;
   setTarget(lat, lon, null, { fly: false });
 };
 controls.onUserInput = () => { state.tracking = false; };
+controls.onKeyTarget = () => {
+  if (state.detonated || state.armed) return;
+  const c = controls.desired;
+  setTarget(r2d(c.lat), r2d(c.lon), null, { fly: false });
+};
 
 // ---------- Modes caméra ----------
 
@@ -401,7 +446,10 @@ function trackAim(mode) {
 
 function setView(mode) {
   state.view = mode;
-  document.querySelectorAll('.view-btn').forEach((b) => b.classList.toggle('active', b.dataset.view === mode));
+  document.querySelectorAll('.view-btn').forEach((b) => {
+    b.classList.toggle('active', b.dataset.view === mode);
+    b.setAttribute('aria-pressed', String(b.dataset.view === mode));
+  });
   document.body.classList.toggle('cinematic', mode === 'cinema' || mode === 'street');
   controls.minClearance = mode === 'street' ? 1.6 : 15;
   const e = state.effects;
@@ -474,6 +522,7 @@ function stepArming(dt) {
   // silence au flash ; le son voyage ensuite à sa vraie vitesse jusqu'à la caméra
   const camDist = state.camPos ? explosion.origin.distanceTo(state.camPos) : 20000;
   sound.playDetonationFlash(state.yieldKt, camDist);
+  announce(`Detonation: ${e.yieldFormatted} over ${state.targetName || 'the target'}. Shockwave arrives in about ${Math.round(camDist / 340)} seconds.`);
 }
 
 function resetSim() {
@@ -505,13 +554,17 @@ const SPEEDS = ['auto', '0.25', '1', '10'];
 const speedLabel = (m) => (m === 'auto' ? 'AUTO' : `${m}×`);
 function setPaused(p) {
   state.paused = p;
-  $('#mb-play').textContent = p ? '▶' : '⏸';
+  const b = $('#mb-play');
+  b.textContent = p ? '▶' : '⏸';
+  b.title = p ? 'Play' : 'Pause';
+  b.setAttribute('aria-label', b.title);
 }
 $('#mb-play').onclick = () => { sound.playClick(900); setPaused(!state.paused); };
 $('#mb-speed').onclick = () => {
   sound.playClick(1000);
   state.speedMode = SPEEDS[(SPEEDS.indexOf(state.speedMode) + 1) % SPEEDS.length];
   $('#mb-speed').textContent = speedLabel(state.speedMode);
+  $('#mb-speed').setAttribute('aria-label', `Playback speed: ${state.speedMode === 'auto' ? 'auto' : `${state.speedMode} times`}`);
   setPaused(false);
 };
 $('#mb-reset').onclick = () => { sound.playClick(750); resetSim(); refresh(); };
@@ -563,6 +616,7 @@ $('#build-tag').textContent = __BUILD__;
 $('.damage-header-row').addEventListener('click', (e) => {
   if (e.target.closest('.burst-btn')) return;
   $('.damage-card').classList.toggle('open');
+  $('.damage-header-row').setAttribute('aria-expanded', String($('.damage-card').classList.contains('open')));
 });
 $('#fx-toggle-header').onclick = () => $('#fx-control-body').classList.toggle('collapsed');
 $('#fx-imagery').onchange = (e) => { globe.setImagery(e.target.value); };
@@ -587,19 +641,44 @@ $('#audio-toggle-btn').onclick = (e) => {
 const aboutHtml = $('#about-content').outerHTML;
 const CREDITS = () => `<div class="credits">
   <p>${IMAGERY[globe.imagery].attribution}</p><p>${TERRAIN.attribution}</p><p>${VECTOR.attribution}</p>
-  <p>Geocoding: <a href="https://photon.komoot.io" target="_blank">Photon</a> (OpenStreetMap)</p></div>`;
+  <p>Geocoding: <a href="https://photon.komoot.io" target="_blank" rel="noopener">Photon</a> (OpenStreetMap)</p></div>`;
+let modalOpener = null;
 function openModal(title, html) {
+  modalOpener = document.activeElement;
   $('#modal-title').textContent = title;
   $('#modal-body').innerHTML = html;
   $('#science-modal').classList.remove('hidden');
+  $('#close-science-modal').focus();
 }
+function closeModal() {
+  $('#science-modal').classList.add('hidden');
+  modalOpener?.focus?.();
+}
+$('#science-modal').addEventListener('keydown', (e) => {
+  e.stopPropagation();
+  if (e.key === 'Escape') { closeModal(); return; }
+  if (e.key !== 'Tab') return;
+  const f = [...$('#science-modal').querySelectorAll('button, a[href], [tabindex]:not([tabindex="-1"])')];
+  if (!f.length) return;
+  const first = f[0], last = f[f.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
 $('#science-modal-btn').onclick = () => openModal('SCIENTIFIC MODEL & REFERENCES', aboutHtml);
 $('#credits-btn').onclick = () => openModal('MAP DATA', CREDITS());
-$('#close-science-modal').onclick = () => $('#science-modal').classList.add('hidden');
-$('#science-modal').onclick = (e) => { if (e.target.id === 'science-modal') e.currentTarget.classList.add('hidden'); };
+$('#close-science-modal').onclick = closeModal;
+$('#science-modal').onclick = (e) => { if (e.target.id === 'science-modal') closeModal(); };
+
+// éléments « bouton » non natifs : activables au clavier (Entrée / Espace)
+document.addEventListener('keydown', (e) => {
+  const el = e.target.closest?.('[role="button"][tabindex]');
+  if (el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); e.stopPropagation(); el.click(); }
+}, true);
 
 window.addEventListener('keydown', (e) => {
-  if (document.activeElement === elSearch) return;
+  // raccourcis globaux seulement hors des champs et boutons (sinon Espace activerait aussi le bouton)
+  if (e.target.closest?.('input, select, textarea, button, a, [role="button"]')) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
   // Espace : détoner, ou pause/lecture pendant une détonation
   if (e.code === 'Space') { e.preventDefault(); state.detonated ? setPaused(!state.paused) : detonate(); }
   else if (e.key === '1') setView('globe');
@@ -675,7 +754,7 @@ renderer.setAnimationLoop(() => {
 
   // tremblement à l'arrivée de l'onde de choc
   state.shake *= Math.exp(-dt / 1.4);
-  if (shakeEnabled && state.shake > 0.002) {
+  if (shakeEnabled && !reduceMotion.matches && state.shake > 0.002) {
     const a = state.shake, tt = uTime.value;
     shakeE.set(
       (Math.sin(tt * 37.1) + Math.sin(tt * 61.7) * 0.5) * a * 0.012,
@@ -724,8 +803,9 @@ renderer.setAnimationLoop(() => {
     // flash thermique : la caméra sature
     const distK = Math.min(1, (e.radii.fireballM * 90) / dist);
     const flash = s.flashIntensity * (s.t < 3 ? 1 : 0) * facing * (0.35 + 0.65 * distK);
-    $('#thermal-flash-overlay').style.opacity = String(Math.min(0.94, flash * 0.95));
-    uFlashTint.value = Math.min(0.85, flash * 0.9);
+    const flashCap = reduceMotion.matches ? 0.35 : 0.94; // flash adouci si l'utilisateur limite les animations
+    $('#thermal-flash-overlay').style.opacity = String(Math.min(flashCap, flash * 0.95));
+    uFlashTint.value = Math.min(reduceMotion.matches ? 0.3 : 0.85, flash * 0.9);
 
     // iris automatique : la boule de feu éblouit, le décor s'assombrit puis récupère
     // seul le flash (pas la lueur lente du nuage) ferme l'iris, qui se rouvre en ~1 s
@@ -741,6 +821,7 @@ renderer.setAnimationLoop(() => {
       sound.playShockwaveImpact(state.yieldKt, psi);
       state.shake = Math.min(1.6, 0.25 + psi * 0.35);
       showAlert(`⚠ BLAST WAVE IMPACT — ${psi.toFixed(1)} PSI`, 3500);
+      announce(`Blast wave reached the camera: ${psi.toFixed(1)} psi.`);
     } else if (!state.arrived && state.t > 0) {
       const eta = (groundDist - s.shockRadiusM) / 340;
       showAlert(`SHOCKWAVE ARRIVAL IN ${eta.toFixed(1)}s (DIST: ${formatDistance(groundDist)})`);
@@ -926,6 +1007,7 @@ function hudTick(s, camDist) {
   $('#tel-cam-dist').textContent = formatDistance(camDist);
   $('#mb-time').textContent = `T+${state.t < 100 ? state.t.toFixed(1) : Math.round(state.t)}s`;
   const sl = $('#timeline-scrub-slider');
+  sl.setAttribute('aria-valuetext', `T plus ${state.t < 120 ? `${Math.round(state.t)} seconds` : `${Math.round(state.t / 60)} minutes`}`);
   if (document.activeElement !== sl) sl.value = String(state.t);
 }
 
