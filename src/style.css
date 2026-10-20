@@ -1208,3 +1208,8 @@ body.is-fullscreen .fs-btn .fs-exit { display: block; }
 .noscript { position: fixed; inset: 0; z-index: 200; padding: 40px; background: var(--bg-deep); max-width: 720px; }
 .noscript h1 { font-family: var(--font-display); font-size: 22px; margin-bottom: 14px; }
 .noscript p { line-height: 1.6; color: #c9d1dc; }
+
+/* lien vers le dépôt GitHub */
+.gh-link { display: inline-flex; align-items: center; gap: 4px; text-decoration: none; }
+.gh-link svg { opacity: 0.85; }
+.about-content a, .about-data a { color: var(--amber-bright); }
