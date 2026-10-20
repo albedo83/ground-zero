@@ -91,6 +91,20 @@ export class Explosion {
     this.group.visible = true;
   }
 
+  // tuile z14 du point zéro : sert à router les requêtes vers le worker qui a déjà ces tuiles en cache
+  gzTile() {
+    // niveau du masque terre/eau : fin en ville (z14 ≈ 2,4 km par tuile), plus grossier pour les grandes zones
+    const outer = this.O?.outer.value || 3000;
+    const z = Math.max(9, Math.min(14, Math.round(14 - Math.log2(Math.max(1, outer / 3000)))));
+    const n = 2 ** z, latR = THREE.MathUtils.degToRad(this.lat);
+    return {
+      maskZoom: z,
+      z,
+      x: Math.floor((this.lon + 180) / 360 * n),
+      y: Math.floor((1 - Math.log(Math.tan(latR) + 1 / Math.cos(latR)) / Math.PI) / 2 * n),
+    };
+  }
+
   toLocal(ecef, out = new THREE.Vector3()) {
     const d = ecef.clone().sub(this.origin);
     return out.set(d.dot(this.basis.e), d.dot(this.basis.u), d.dot(this.basis.s));
@@ -361,6 +375,8 @@ export class Explosion {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     geo.setAttribute('polar', new THREE.BufferAttribute(polar, 2));
+    // 1 = terre, 0 = eau (rempli par le masque de la couche « water ») : pas de feu sur la Seine
+    geo.setAttribute('land', new THREE.BufferAttribute(new Float32Array(count).fill(1), 1));
     geo.setIndex(idx);
 
     const O = this.O = {
@@ -371,6 +387,7 @@ export class Explosion {
     const tex = this.noise;
     const shader = Fn(() => {
       const pr = attribute('polar', 'vec2');
+      const land = attribute('land', 'float');
       const r = pr.x;
       const xy = pr.y;
       const lw = max(r.mul(0.0), O.outer.mul(0.004)).add(4.0);
@@ -401,7 +418,7 @@ export class Explosion {
         const t = D.time;
         // brûlure thermique (fluence ∝ 1/r²), progressive pendant l'impulsion
         const fluence = clamp(O.rTh.div(max(r, 1.0)).pow(2.0).sub(0.35), 0.0, 1.0);
-        const burn = fluence.mul(smoothstep(0.0, 1.2, t));
+        const burn = fluence.mul(smoothstep(0.0, 1.2, t)).mul(land.mul(0.85).add(0.15));
         const scorch = vec3(0.045, 0.035, 0.03);
         alpha.assign(burn.mul(0.82));
         col.assign(scorch);
@@ -417,7 +434,7 @@ export class Explosion {
         const n = texture3D(tex, vec3(gx.div(900.0), gz.div(900.0), t.mul(0.004))).level(0);
         const n2 = texture3D(tex, vec3(gz.div(260.0), gx.div(260.0), t.mul(0.011).add(0.5))).level(0);
         const fireZone = smoothstep(O.rTh.mul(1.05), O.rTh.mul(0.5), r).mul(smoothstep(O.rFb.mul(0.8), O.rFb.mul(1.6), r));
-        const fires = smoothstep(0.62, 0.8, n.r.mul(0.6).add(n2.g.mul(0.4))).mul(fireZone).mul(smoothstep(1.5, 6.0, t));
+        const fires = smoothstep(0.62, 0.8, n.r.mul(0.6).add(n2.g.mul(0.4))).mul(fireZone).mul(smoothstep(1.5, 6.0, t)).mul(land);
         const flick = float(0.75).add(sin(t.mul(9.0).add(n2.b.mul(40.0))).mul(0.25));
         col.addAssign(vec3(4.0, 1.25, 0.3).mul(fires).mul(flick));
         alpha.assign(max(alpha, fires.mul(0.9)));
@@ -454,6 +471,7 @@ export class Explosion {
     const pos = this.overlay.geometry.attributes.position.array;
     const polar = this.overlay.geometry.attributes.polar.array;
     const P = new THREE.Vector3();
+    const ll = new Float64Array((RINGS + 1) * (SEG + 1) * 2);
     for (let i = 0; i <= RINGS; i++) {
       const r = outer * Math.pow(i / RINGS, 1.6);
       for (let j = 0; j <= SEG; j++) {
@@ -461,6 +479,8 @@ export class Explosion {
         const x = Math.cos(a) * r, z = Math.sin(a) * r;
         P.copy(this.origin).addScaledVector(this.basis.e, x).addScaledVector(this.basis.s, z);
         const g = ecefToGeodetic(P.x, P.y, P.z);
+        ll[2 * (i * (SEG + 1) + j)] = THREE.MathUtils.radToDeg(g.lon);
+        ll[2 * (i * (SEG + 1) + j) + 1] = THREE.MathUtils.radToDeg(g.lat);
         const h = this.globe.groundHeight(g.lat, g.lon) + 3 + r * 0.0015;
         const E = new THREE.Vector3(...geodeticToEcef(g.lat, g.lon, h));
         const L = this.toLocal(E);
@@ -472,6 +492,21 @@ export class Explosion {
     this.overlay.geometry.attributes.position.needsUpdate = true;
     this.overlay.geometry.attributes.polar.needsUpdate = true;
     this.overlay.geometry.computeBoundingSphere();
+    this.requestOverlayLand(ll);
+  }
+
+  // masque terre/eau du voile au sol, demandé une fois par cible et par étendue
+  async requestOverlayLand(ll) {
+    const key = `${this.lat.toFixed(5)},${this.lon.toFixed(5)},${Math.round(this.O.outer.value)}`;
+    if (this.landKey === key) return;
+    this.landKey = key;
+    try {
+      const { land } = await this.globe.pool.run({ type: 'landmask', points: ll, ...this.gzTile() });
+      if (this.landKey !== key) return;
+      const a = this.overlay.geometry.attributes.land;
+      for (let i = 0; i < land.length; i++) a.array[i] = land[i];
+      a.needsUpdate = true;
+    } catch { this.landKey = null; }
   }
 
   // ---------- Mise à jour par frame ----------

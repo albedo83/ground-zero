@@ -22,7 +22,7 @@ Raccourcis : `Espace` détoner · `1-4` vues (globe, cinéma, tactique, témoin)
 | Chronologie | `src/nuke/physics.js` (Glasstone & Dolan) : rayon de boule de feu, montée flottante, sommet du nuage, front de choc Sedov → Mach 1 |
 | Onde de choc | Coquille qui réfracte l'image (`viewportSharedTexture`), front de poussière au sol |
 | Ville | Bâtiments rasés/inclinés au passage du front selon la surpression, vaporisés dans la boule de feu, carbonisés, incendies aux étages bas |
-| Incendies | Particules GPU : colonnes de fumée noire poussées par le vent, flammes HDR et braises ; foyers répartis dans la zone thermique, embrasement sur ~10 min |
+| Incendies | Particules GPU : colonnes de fumée noire poussées par le vent, flammes HDR et braises ; foyers répartis dans la zone thermique sur la terre ferme (masque eau OpenFreeMap), embrasement sur ~10 min |
 | Caméra | Flash qui sature, iris automatique, bloom HDR, grain/vignette, tremblement à l'arrivée du souffle, bandes cinéma |
 | Son | Flash immédiat, boom retardé par la distance réelle (≈ 340 m/s), grondement filtré selon la surpression reçue |
 | Temps | Temps réel pendant le flash et le souffle, puis accéléré « documentaire » (AUTO, jusqu'à 30×), frise sur 30 min |

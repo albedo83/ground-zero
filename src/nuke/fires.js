@@ -112,23 +112,40 @@ export class Fires {
 
   setDensity(n) { this.density = Math.min(MAX_PLUMES, n); }
 
-  // répartit les foyers dans la zone thermique (plus serrés vers le centre), sur la terre ferme
-  place() {
+  // répartit les foyers dans la zone thermique (plus serrés vers le centre), sur la terre ferme :
+  // on tire un surplus de positions, le worker élimine celles qui tombent sur l'eau (mer, lacs, fleuves)
+  async place() {
     const ex = this.ex, e = ex.effects;
     if (!e) return;
+    const token = (this.placeToken = (this.placeToken || 0) + 1);
     const rIn = e.radii.fireballM * 1.2, rOut = Math.max(rIn * 1.5, e.radii.thermalM * 1.05);
     const P = this.density;
-    this.sites = [];
-    for (let i = 0, tries = 0; i < P && tries < P * 6; tries++) {
+    const cand = [];
+    const pts = new Float64Array(P * 3 * 2);
+    const b = ex.basis;
+    for (let i = 0; i < P * 3; i++) {
       const r = rIn + (rOut - rIn) * Math.pow(Math.random(), 1.5);
       const a = Math.random() * Math.PI * 2;
-      const x = Math.cos(a) * r, z = Math.sin(a) * r;
-      const site = { x, z, r, h: 0 };
-      if (!this.ground(site)) continue; // eau : pas de feu
-      site.delay = 1.5 + Math.random() * 10 + (r / rOut) * 10;
-      site.scale = (0.6 + Math.random() * 0.9) * (1.25 - 0.5 * (r / rOut));
+      const site = { x: Math.cos(a) * r, z: Math.sin(a) * r, r, h: 0 };
+      const W = ex.origin.clone().addScaledVector(b.e, site.x).addScaledVector(b.s, site.z);
+      const g = ecefToGeodetic(W.x, W.y, W.z);
+      pts[2 * i] = THREE.MathUtils.radToDeg(g.lon);
+      pts[2 * i + 1] = THREE.MathUtils.radToDeg(g.lat);
+      cand.push(site);
+    }
+    let land = null;
+    try {
+      land = (await ex.globe.pool.run({ type: 'landmask', points: pts, ...ex.gzTile() })).land;
+    } catch { /* tuiles vectorielles indisponibles : on garde le simple test d'altitude */ }
+    if (token !== this.placeToken) return; // une autre frappe a été lancée entre-temps
+    this.sites = [];
+    for (let i = 0; i < cand.length && this.sites.length < P; i++) {
+      const site = cand[i];
+      if (land && !land[i]) continue;
+      if (!this.ground(site)) continue;
+      site.delay = 1.5 + Math.random() * 10 + (site.r / rOut) * 10;
+      site.scale = (0.6 + Math.random() * 0.9) * (1.25 - 0.5 * (site.r / rOut));
       this.sites.push(site);
-      i++;
     }
     this.plumes = this.sites.length;
     this.writeAttributes();
@@ -173,6 +190,7 @@ export class Fires {
   }
 
   reset() {
+    this.placeToken = (this.placeToken || 0) + 1;
     for (const m of Object.values(this.meshes)) { m.visible = false; m.geometry.instanceCount = 0; }
     this.sites = [];
     this.plumes = 0;

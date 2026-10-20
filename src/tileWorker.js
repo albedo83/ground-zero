@@ -426,13 +426,67 @@ async function buildPlaces({ z, x, y, lang }) {
   return { result: { places: out }, transfer: [] };
 }
 
+// ---------- Masque terre / eau (couche « water » : mer, lacs, fleuves) ----------
+
+// points : Float64Array [lon, lat, lon, lat…] en degrés → Uint8Array (1 = terre, 0 = eau)
+async function buildLandMask({ points, maskZoom }) {
+  const z = Math.min(VECTOR.maxZoom, maskZoom || VECTOR.maxZoom), n = 2 ** z;
+  const count = points.length / 2;
+  const land = new Uint8Array(count).fill(1);
+  const byTile = new Map();
+  for (let i = 0; i < count; i++) {
+    const mx = (points[2 * i] + 180) / 360 * n;
+    const latR = points[2 * i + 1] * Math.PI / 180;
+    const my = (1 - Math.log(Math.tan(latR) + 1 / Math.cos(latR)) / Math.PI) / 2 * n;
+    const key = `${Math.floor(mx)}/${Math.floor(my)}`;
+    if (!byTile.has(key)) byTile.set(key, { x: Math.floor(mx), y: Math.floor(my), idx: [] });
+    byTile.get(key).idx.push(i, mx, my);
+  }
+  await Promise.all([...byTile.values()].map(async (t) => {
+    const vec = await getVector(z, t.x, t.y);
+    const layer = vec?.tile.layers.water;
+    if (!layer) return;
+    // anneaux avec leur boîte englobante, pour un test pair/impair rapide
+    const rings = [];
+    for (let f = 0; f < layer.length; f++) {
+      const feat = layer.feature(f);
+      if (feat.type !== 3) continue;
+      const ext = feat.extent;
+      for (const ring of feat.loadGeometry()) {
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        for (const p of ring) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
+        rings.push({ ring, ext, f, x0, y0, x1, y1 });
+      }
+    }
+    for (let k = 0; k < t.idx.length; k += 3) {
+      const i = t.idx[k];
+      // parité par polygone (les trous d'un polygone annulent son intérieur)
+      const parity = new Map();
+      for (const r of rings) {
+        const px = (t.idx[k + 1] - t.x) * r.ext, py = (t.idx[k + 2] - t.y) * r.ext;
+        if (px < r.x0 || px > r.x1 || py < r.y0 || py > r.y1) continue;
+        let inside = false;
+        const pts = r.ring;
+        for (let a = 0, b = pts.length - 1; a < pts.length; b = a++) {
+          const A = pts[a], B = pts[b];
+          if ((A.y > py) !== (B.y > py) && px < ((B.x - A.x) * (py - A.y)) / (B.y - A.y) + A.x) inside = !inside;
+        }
+        if (inside) parity.set(r.f, !parity.get(r.f));
+      }
+      for (const v of parity.values()) if (v) { land[i] = 0; break; }
+    }
+  }));
+  return { result: { land }, transfer: [land.buffer] };
+}
+
 self.onmessage = async (e) => {
   const msg = e.data;
   if (msg.type === 'init') { vectorUrl = msg.vectorUrl; return; }
   if (msg.exag !== undefined) exag = msg.exag;
   try {
     const out = msg.type === 'buildings' ? await buildBuildings(msg)
-      : msg.type === 'places' ? await buildPlaces(msg) : await buildTile(msg);
+      : msg.type === 'places' ? await buildPlaces(msg)
+      : msg.type === 'landmask' ? await buildLandMask(msg) : await buildTile(msg);
     self.postMessage({ id: msg.id, ok: true, ...out.result }, out.transfer);
   } catch (err) {
     self.postMessage({ id: msg.id, ok: false, error: String(err) });
