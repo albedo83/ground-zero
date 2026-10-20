@@ -42,6 +42,7 @@ Raccourcis : `Espace` détoner · `1-4` vues (globe, cinéma, tactique, témoin)
 - `src/nuke/buildingMaterial.js` : effondrement et incendies des bâtiments.
 - `src/nuke/physics.js`, `src/nuke/sound.js` : physique et son (repris puis étendus de `../ground-zero`).
 - `src/main.js` : rendu HDR, horloge de simulation, modes caméra, HUD.
+- `src/labels.js` : noms des villes (couche « place » d'OpenFreeMap), triés par importance, sans chevauchement, dans la langue du navigateur.
 
 Relief exagéré ×2 par défaut (curseur ×1 à ×4 dans Render pipeline), avec un éclairage rasant qui contraste les versants.
 

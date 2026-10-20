@@ -13,6 +13,7 @@ import {
 } from './nuke/physics.js';
 import { NuclearSoundEngine } from './nuke/sound.js';
 import { Explosion } from './nuke/explosion.js';
+import { CityLabels } from './labels.js';
 import './style.css';
 
 const $ = (s) => document.querySelector(s);
@@ -107,6 +108,7 @@ volumePass.setResolutionScale(0.6);
 
 const explosion = new Explosion(globe, { volumeScene, sceneDepth: scenePass.getTextureNode('depth') });
 const controls = new EarthControls(canvas, camera, globe);
+const labels = new CityLabels(globe, camera, $('#city-labels'), { max: isTouch ? 22 : 45 });
 const sound = new NuclearSoundEngine();
 
 // filtre « tente » léger (5 échantillons) : efface le bruit du raymarching sans flouter les volutes
@@ -733,6 +735,10 @@ renderer.setAnimationLoop(() => {
   }
 
   updateTargetMarker(camPos);
+  // le réticule de la cible (et son étiquette) a priorité sur les noms de villes
+  const tmRect = !tm.classList.contains('hidden-marker') && !tm.classList.contains('edge') && tmPos
+    ? [[tmPos.x - 24, tmPos.y - 24, tmPos.x + 120, tmPos.y + 24]] : [];
+  labels.update(camPos, performance.now(), tmRect);
   globe.update(camera, camPos, window.innerHeight);
 
   // rendu à la demande : si rien ne bouge, on ne redessine que 4 fois par seconde
@@ -816,6 +822,7 @@ applyQuality(quality.tier);
 // ---------- Réticule de cible ----------
 
 const tm = $('#target-marker');
+let tmPos = null;
 const tmV = new THREE.Vector3(), tmN = new THREE.Vector3();
 function lockTargetMarker() {
   tm.classList.remove('locking');
@@ -855,6 +862,7 @@ function updateTargetMarker(camPos) {
     tm.style.setProperty('--arrow-rot', `${Math.atan2(dy, dx)}rad`);
   }
   tm.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+  tmPos = { x, y };
 }
 
 let telTimer = 0;

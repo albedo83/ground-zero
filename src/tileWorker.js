@@ -400,12 +400,39 @@ async function buildBuildings({ z, x, y }) {
   };
 }
 
+// ---------- Noms de lieux (couche « place ») ----------
+
+const PLACE_CLASSES = { city: 0, town: 1, village: 2 };
+
+async function buildPlaces({ z, x, y, lang }) {
+  const vec = await getVector(z, x, y);
+  const layer = vec?.tile.layers.place;
+  const out = [];
+  if (!layer) return { result: { places: out }, transfer: [] };
+  const key = lang === 'fr' ? 'name:fr' : 'name:en';
+  for (let i = 0; i < layer.length; i++) {
+    const f = layer.feature(i);
+    const p = f.properties;
+    if (!(p.class in PLACE_CLASSES)) continue;
+    const g = f.toGeoJSON(vec.vx, vec.vy, vec.vz).geometry;
+    if (g.type !== 'Point') continue;
+    const name = p[key] || p['name:latin'] || p.name_int || p.name;
+    if (!name) continue;
+    out.push({
+      name, cls: PLACE_CLASSES[p.class], rank: p.rank ?? 99, capital: p.capital ?? 0,
+      lon: g.coordinates[0], lat: g.coordinates[1],
+    });
+  }
+  return { result: { places: out }, transfer: [] };
+}
+
 self.onmessage = async (e) => {
   const msg = e.data;
   if (msg.type === 'init') { vectorUrl = msg.vectorUrl; return; }
-  exag = msg.exag ?? 1;
+  if (msg.exag !== undefined) exag = msg.exag;
   try {
-    const out = msg.type === 'buildings' ? await buildBuildings(msg) : await buildTile(msg);
+    const out = msg.type === 'buildings' ? await buildBuildings(msg)
+      : msg.type === 'places' ? await buildPlaces(msg) : await buildTile(msg);
     self.postMessage({ id: msg.id, ok: true, ...out.result }, out.transfer);
   } catch (err) {
     self.postMessage({ id: msg.id, ok: false, error: String(err) });
