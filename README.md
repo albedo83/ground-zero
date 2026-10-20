@@ -22,6 +22,7 @@ Raccourcis : `Espace` détoner · `1-4` vues (globe, cinéma, tactique, témoin)
 | Chronologie | `src/nuke/physics.js` (Glasstone & Dolan) : rayon de boule de feu, montée flottante, sommet du nuage, front de choc Sedov → Mach 1 |
 | Onde de choc | Coquille qui réfracte l'image (`viewportSharedTexture`), front de poussière au sol |
 | Ville | Bâtiments rasés/inclinés au passage du front selon la surpression, vaporisés dans la boule de feu, carbonisés, incendies aux étages bas |
+| Incendies | Particules GPU : colonnes de fumée noire poussées par le vent, flammes HDR et braises ; foyers répartis dans la zone thermique, embrasement sur ~10 min |
 | Caméra | Flash qui sature, iris automatique, bloom HDR, grain/vignette, tremblement à l'arrivée du souffle, bandes cinéma |
 | Son | Flash immédiat, boom retardé par la distance réelle (≈ 340 m/s), grondement filtré selon la surpression reçue |
 | Temps | Temps réel pendant le flash et le souffle, puis accéléré « documentaire » (AUTO, jusqu'à 30×), frise sur 30 min |
@@ -41,6 +42,7 @@ Raccourcis : `Espace` détoner · `1-4` vues (globe, cinéma, tactique, témoin)
 - `src/globe.js`, `src/tileWorker.js`, `src/controls.js` : moteur de globe (quadtree, LOD, workers, caméra).
 - `src/nuke/explosion.js` : volume, coquille de choc, voile au sol, lumière du flash.
 - `src/nuke/buildingMaterial.js` : effondrement et incendies des bâtiments.
+- `src/nuke/fires.js` : incendies au sol (fumée, flammes, braises).
 - `src/nuke/physics.js`, `src/nuke/sound.js` : physique et son (repris puis étendus de `../ground-zero`).
 - `src/main.js` : rendu HDR, horloge de simulation, modes caméra, HUD.
 - `src/labels.js` : noms des villes (couche « place » d'OpenFreeMap), triés par importance, sans chevauchement, dans la langue du navigateur.

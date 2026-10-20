@@ -16,6 +16,7 @@ import { geodeticToEcef, ecefToGeodetic, enu } from '../geo.js';
 import { explosionTimeline } from './physics.js';
 import { getNoiseTexture } from './noise3d.js';
 import { damage } from './damage.js';
+import { Fires } from './fires.js';
 
 // le nombre de pas et les échantillons d'ombrage dépendent du niveau de qualité (uniformes : pas de recompilation)
 
@@ -63,6 +64,7 @@ export class Explosion {
     this.buildVolume();
     this.buildShockShell();
     this.buildGroundOverlay();
+    this.fires = new Fires(this);
 
     this.light = new THREE.PointLight(0xffe2b8, 0, 0, 2);
     this.group.add(this.light);
@@ -109,6 +111,7 @@ export class Explosion {
     this.t = 0;
     this.O.rings.value = 0;
     damage.active.value = 1;
+    this.fires.place();
   }
 
   reset() {
@@ -121,6 +124,7 @@ export class Explosion {
     this.volume.visible = false;
     this.shell.visible = false;
     this.light.intensity = 0;
+    this.fires.reset();
   }
 
   // ---------- Nuage volumétrique ----------
@@ -472,7 +476,7 @@ export class Explosion {
 
   // ---------- Mise à jour par frame ----------
 
-  update(t, camPos, camFwd, sunWorld, fog) {
+  update(t, camPos, camFwd, sunWorld, fog, camMatrix) {
     if (this.lat === undefined) return null;
     this.t = t;
     // re-drape périodique tant que les tuiles arrivent
@@ -482,6 +486,7 @@ export class Explosion {
       const gh = this.globe.groundHeight(latR, lonR);
       if (Math.abs(gh - this.groundH) > 2) this.setTarget(this.lat, this.lon);
       else this.rebuildOverlayHeights();
+      if (this.detonated && t < 90) this.fires.refreshHeights();
     }
     if (!this.detonated) {
       this.O.pulse.value = (performance.now() / 2600) % 1;
@@ -535,6 +540,8 @@ export class Explosion {
     this.light.intensity = flashLum * 2.2e6 * Math.pow(e.yieldKt / 15, 0.5);
     this.light.distance = Math.max(e.radii.thermalM, e.radii.blast1PsiM) * 2.5;
     this.light.color.setRGB(1, 0.75 + 0.2 * Math.min(1, s.coreTemp / 6000), 0.5 + 0.45 * Math.min(1, s.coreTemp / 7000));
+
+    if (camMatrix) this.fires.update(t, performance.now() / 1000, camMatrix, e);
 
     // uniformes partagés (bâtiments, sol)
     damage.time.value = t;
