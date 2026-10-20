@@ -36,9 +36,9 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1e8);
 
-const ambient = new THREE.AmbientLight(0xffffff, 0.58);
-// sol plat ≈ 1,15 × l'imagerie en plein jour ; les pentes à l'ombre gardent le relief lisible
-const sun = new THREE.DirectionalLight(0xfff2e0, 1.25);
+const ambient = new THREE.AmbientLight(0xffffff, 0.42);
+// sol plat ≈ 1,1 × l'imagerie en plein jour ; ambiance basse et soleil fort : versants très contrastés
+const sun = new THREE.DirectionalLight(0xfff2e0, 1.5);
 scene.add(ambient, sun, sun.target);
 
 let stars;
