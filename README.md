@@ -63,3 +63,10 @@ rsync -az --delete dist/ user@your-server:/var/www/ground-zero/
 ```
 
 Servi par Caddy (`airfall.dev`) : page et manifeste en `no-cache`, fichiers versionnés en cache long.
+
+## Licence
+
+Code sous licence **MIT** (voir `LICENSE`).
+Les données cartographiques chargées à l'exécution gardent leurs propres licences et attributions :
+Sentinel-2 cloudless (EOX, CC BY-NC-SA 4.0), Esri World Imagery, AWS Terrain Tiles,
+OpenFreeMap / OpenMapTiles © contributeurs OpenStreetMap (ODbL).
