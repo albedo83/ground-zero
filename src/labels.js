@@ -87,7 +87,8 @@ export class CityLabels {
   }
 
   // reserved : rectangles écran déjà occupés (réticule de la cible…)
-  update(camPos, now, reserved = []) {
+  // occluders : ellipses écran du champignon ; un nom situé derrière et dedans est masqué
+  update(camPos, now, reserved = [], occluders = []) {
     if (now > this.nextRefresh) { this.refresh(); this.nextRefresh = now + 600; }
     const cam = this.camera;
     const W = window.innerWidth, H = window.innerHeight;
@@ -108,6 +109,8 @@ export class CityLabels {
       if (x < 0 || x > W || y < 0 || y > H) continue;
       // trop proche : le nom écraserait la vue de rue
       if (dist < 600) continue;
+      // caché derrière le champignon ?
+      if (occluders.some((o) => dist > o.depth && ((x - o.x) / o.rx) ** 2 + ((y - o.y) / o.ry) ** 2 < 1)) continue;
       const big = p.capital === 2 || (p.cls === 0 && p.rank <= 2);
       const w = p.name.length * (big ? 7.4 : 6.4) + 16, h = big ? 16 : 14;
       const box = [x - 4, y - h / 2, x + w, y + h / 2];

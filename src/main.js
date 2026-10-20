@@ -6,7 +6,7 @@ import {
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { Globe } from './globe.js';
 import { EarthControls } from './controls.js';
-import { A, B, geodeticToEcef } from './geo.js';
+import { A, B, geodeticToEcef, ecefToGeodetic } from './geo.js';
 import { IMAGERY, TERRAIN, VECTOR } from './config.js';
 import {
   HISTORICAL_DETONATIONS_BASE, WEAPON_PRESETS, TARGET_CITIES, formatDistance, calculateNuclearEffects, overpressureAt,
@@ -394,7 +394,9 @@ function trackAim(mode) {
   const s = explosion.state;
   const c = cinemaPose(mode);
   if (!s || !state.detonated) return c.aim;
-  return Math.max(c.aim, s.capC * (mode === 'street' ? 0.55 : 0.45));
+  // quand la tige s'est dissipée, il ne reste que le chapeau en altitude : on relève le cadre
+  const lift = 0.24 * (1 - (s.stemFade ?? 1));
+  return Math.max(c.aim, s.capC * ((mode === 'street' ? 0.55 : 0.5) + lift));
 }
 
 function setView(mode) {
@@ -621,6 +623,8 @@ let hudTimer = 0, fpsFrames = 0, fps = 0;
 const shakeQ = new THREE.Quaternion();
 const shakeE = new THREE.Euler();
 
+const T_END = 1800; // 30 min simulées : le nuage a le temps de dériver et de se dissiper
+
 function simSpeed() {
   if (state.paused) return 0;
   if (state.speedMode !== 'auto') return parseFloat(state.speedMode);
@@ -636,10 +640,11 @@ renderer.setAnimationLoop(() => {
   // horloge : temps réel pendant le flash et le souffle, puis accéléré « documentaire »
   if (state.detonated) {
     if (state.speedMode === 'auto' && state.t > 8 && state.arrived) {
-      const target = state.t < 30 ? 3 : 8;
+      // temps réel pendant le souffle, puis accéléré « documentaire » de plus en plus fort jusqu'à la dissipation
+      const target = state.t < 30 ? 3 : state.t < 150 ? 8 : 30;
       state.autoFactor += (target - state.autoFactor) * Math.min(1, dt * 0.6);
     }
-    state.t = Math.min(600, state.t + dt * simSpeed());
+    state.t = Math.min(T_END, state.t + dt * simSpeed());
   }
 
   // la caméra suit la montée du nuage
@@ -647,6 +652,15 @@ renderer.setAnimationLoop(() => {
     const c = cinemaPose(state.view);
     const d = controls.desired;
     d.aim += (trackAim(state.view) - d.aim) * Math.min(1, dt * 1.5);
+    // le cadre suit le nuage emporté par le vent
+    const st = explosion.state;
+    if (st && st.driftM > 50) {
+      const P = explosion.origin.clone()
+        .addScaledVector(explosion.basis.e, st.driftX * 0.9).addScaledVector(explosion.basis.s, st.driftZ * 0.9);
+      const g = ecefToGeodetic(P.x, P.y, P.z);
+      d.lat += (g.lat - d.lat) * Math.min(1, dt * 1.5);
+      d.lon += (g.lon - d.lon) * Math.min(1, dt * 1.5);
+    }
     const p = poseFor(c.D, c.hc, d.aim);
     d.range = p.range;
     d.pitch = d2r(p.pitch);
@@ -738,7 +752,7 @@ renderer.setAnimationLoop(() => {
   // le réticule de la cible (et son étiquette) a priorité sur les noms de villes
   const tmRect = !tm.classList.contains('hidden-marker') && !tm.classList.contains('edge') && tmPos
     ? [[tmPos.x - 24, tmPos.y - 24, tmPos.x + 120, tmPos.y + 24]] : [];
-  labels.update(camPos, performance.now(), tmRect);
+  labels.update(camPos, performance.now(), tmRect, cloudOccluders(camPos));
   globe.update(camera, camPos, window.innerHeight);
 
   // rendu à la demande : si rien ne bouge, on ne redessine que 4 fois par seconde
@@ -818,6 +832,41 @@ function adaptResolution(f) {
   else if (smoothFor >= 20 && i < TIERS.indexOf(quality.ceiling)) applyQuality(TIERS[i + 1]);
 }
 applyQuality(quality.tier);
+
+// ---------- Silhouette du champignon (pour cacher les noms qui sont derrière) ----------
+
+const occV = new THREE.Vector3();
+function projectPoint(P, camPos) {
+  const q = occV.copy(P).sub(camPos).applyMatrix4(camera.matrixWorldInverse);
+  if (q.z > -1) return null;
+  const depth = -q.z;
+  q.applyMatrix4(camera.projectionMatrix);
+  return { x: (q.x * 0.5 + 0.5) * window.innerWidth, y: (-q.y * 0.5 + 0.5) * window.innerHeight, depth };
+}
+// liste d'ellipses écran { x, y, rx, ry, depth } couvrant le chapeau, la tige et le nuage de base
+function cloudOccluders(camPos) {
+  const s = explosion.state;
+  if (!state.detonated || !s || s.dissipated || s.fade < 0.35) return [];
+  const focal = window.innerHeight / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
+  const O = explosion.origin, b = explosion.basis;
+  const at = (h, lean) => O.clone().addScaledVector(b.u, h)
+    .addScaledVector(b.e, s.driftX * lean).addScaledVector(b.s, s.driftZ * lean);
+  const out = [];
+  const add = (P, rH, rV) => {
+    const p = projectPoint(P, camPos);
+    if (p) out.push({ x: p.x, y: p.y, rx: (rH / p.depth) * focal, ry: (rV / p.depth) * focal, depth: p.depth - rH });
+  };
+  // chapeau (ou boule de feu au début)
+  const capR = s.toroid > 0.3 ? s.capMajor + s.capMinor * 0.85 : s.capMinor;
+  add(at(s.capC, 1), capR, s.capMinor * 1.05);
+  // tige (quelques tronçons le long de l'inclinaison)
+  if (s.stemTop > 5 && s.stemFade > 0.3) {
+    for (const f of [0.15, 0.4, 0.65, 0.88]) add(at(s.stemTop * f, (s.stemTop * f) / Math.max(1, s.capC)), s.stemR * 1.6, s.stemTop * 0.16);
+  }
+  // nuage de base au sol
+  if (s.surgeDensity > 0.2) add(at(s.surgeH * 0.6, 0), s.surgeR * 0.95, s.surgeH * 1.3);
+  return out;
+}
 
 // ---------- Réticule de cible ----------
 

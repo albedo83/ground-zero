@@ -53,6 +53,8 @@ export class Explosion {
       wilson: uniform(0), wilsonR: uniform(1),
       coreTemp: uniform(6000), bright: uniform(0), coreFade: uniform(1),
       roll: uniform(0), age: uniform(0),
+      drift: uniform(new THREE.Vector2()), // dérive du nuage (m, repère local est/sud)
+      fade: uniform(1),                    // dissipation finale du chapeau et de la tige
       sunDir: uniform(new THREE.Vector3(0.4, 0.8, 0.3)),
       visibility: uniform(60000),
       hazeColor: uniform(new THREE.Color(0.3, 0.52, 0.88)),
@@ -127,7 +129,10 @@ export class Explosion {
     const U = this.U, tex = this.noise;
     const n3 = (q) => texture3D(tex, q).level(0);
 
-    const field = Fn(([p]) => {
+    const field = Fn(([p0]) => {
+      // le vent d'altitude emporte le nuage : décalage croissant avec la hauteur (la tige s'incline)
+      const lean = smoothstep(0.0, max(U.capC, 1.0), p0.y);
+      const p = p0.sub(vec3(U.drift.x.mul(lean), 0.0, U.drift.y.mul(lean)));
       const r = length(p.xz);
       const dy = p.y.sub(U.capC);
 
@@ -176,7 +181,7 @@ export class Explosion {
       const surgeDen = smoothstep(U.surgeH.mul(0.3), U.surgeH.mul(-0.6), groundD).mul(float(0.55).div(U.surgeH)).mul(U.surgeDen);
       const wDen = smoothstep(U.wilsonR.mul(0.02), U.wilsonR.mul(-0.03), wd).mul(float(0.9).div(U.wilsonR.mul(0.1))).mul(U.wilson);
       const above = smoothstep(-2.0, 6.0, p.y);
-      const total = capDen.add(stemDen).add(surgeDen).add(wDen).mul(above);
+      const total = capDen.add(stemDen).mul(U.fade).add(surgeDen).add(wDen).mul(above);
 
       // Chaleur : cœur profond + crevasses entre les lobes ; boule de feu entière au début
       const depth = clamp(capD.negate().div(U.capMinor.mul(0.55)), 0.0, 1.0);
@@ -489,7 +494,9 @@ export class Explosion {
     const U = this.U;
     U.t.value = t; U.age.value = t; U.hob.value = s.hob;
     U.capC.value = s.capC; U.capMajor.value = s.capMajor; U.capMinor.value = s.capMinor; U.toroid.value = s.toroid;
-    U.stemTop.value = s.stemTop; U.stemR.value = s.stemR; U.stemVis.value = s.stemTop > 5 ? 1 : 0;
+    U.stemTop.value = s.stemTop; U.stemR.value = s.stemR; U.stemVis.value = s.stemTop > 5 ? s.stemFade : 0;
+    U.drift.value.set(s.driftX, s.driftZ);
+    U.fade.value = s.fade;
     U.surgeR.value = Math.max(1, s.surgeR); U.surgeH.value = Math.max(1, s.surgeH); U.surgeDen.value = s.surgeDensity;
     U.wilson.value = s.wilson; U.wilsonR.value = Math.max(1, s.wilsonR);
     U.coreTemp.value = s.coreTemp; U.bright.value = s.brightness; U.coreFade.value = s.coreFade;
@@ -503,7 +510,7 @@ export class Explosion {
     U.camLocal.value.copy(this.toLocal(camPos));
     U.camFwd.value.set(camFwd.dot(this.basis.e), camFwd.dot(this.basis.u), camFwd.dot(this.basis.s));
     this.volumeRoot.position.copy(camPos).negate();
-    this.volume.visible = true;
+    this.volume.visible = !s.dissipated;
 
     // soleil dans le repère local
     U.sunDir.value.set(sunWorld.dot(this.basis.e), sunWorld.dot(this.basis.u), sunWorld.dot(this.basis.s)).normalize();
