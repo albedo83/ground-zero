@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nuclear Explosion Simulator in 3D — Blast Radius on a Real Map | GROUND//ZERO</title>
+  <meta name="description" content="Free 3D nuclear bomb simulator: see the blast radius, fireball, shockwave and mushroom cloud of Little Boy, Fat Man, B83 or Tsar Bomba over any real city, at true scale." />
+  <meta name="robots" content="index, follow, max-image-preview:large" />
+  <link rel="canonical" href="https://airfall.dev/ground-zero/about/" />
+  <link rel="alternate" hreflang="en" href="https://airfall.dev/ground-zero/about/" />
+  <link rel="alternate" hreflang="fr" href="https://airfall.dev/ground-zero/fr/" />
+  <link rel="alternate" hreflang="x-default" href="https://airfall.dev/ground-zero/about/" />
+  <link rel="icon" type="image/png" href="/ground-zero/icon-192.png" />
+  <meta name="theme-color" content="#05070b" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="GROUND//ZERO" />
+  <meta property="og:title" content="Nuclear explosion simulator in 3D — true scale, real cities" />
+  <meta property="og:description" content="See the blast radius, fireball, shockwave and mushroom cloud of historical nuclear weapons over any real place on Earth." />
+  <meta property="og:url" content="https://airfall.dev/ground-zero/about/" />
+  <meta property="og:image" content="https://airfall.dev/ground-zero/og-image.jpg" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="stylesheet" href="/ground-zero/pages.css" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": "Nuclear explosion simulator in 3D — blast radius on a real map",
+    "url": "https://airfall.dev/ground-zero/about/",
+    "inLanguage": "en",
+    "about": {
+      "@type": "WebApplication",
+      "name": "GROUND//ZERO",
+      "url": "https://airfall.dev/ground-zero/",
+      "applicationCategory": "EducationalApplication",
+      "operatingSystem": "Any — WebGPU or WebGL 2 browser",
+      "isAccessibleForFree": true,
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" }
+    }
+  }
+  </script>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to content</a>
+  <header class="hero">
+    <a class="brand" href="/ground-zero/">GROUND<b>//</b>ZERO</a>
+    <h1>3D nuclear explosion simulator: the blast radius on a real map, at true scale</h1>
+    <p class="lead">Pick any city on Earth, choose a weapon from the 20-ton Davy Crockett to the 50-megaton Tsar Bomba,
+      and watch the flash, the shockwave and the mushroom cloud unfold over real terrain, satellite imagery and buildings.</p>
+    <a class="cta" href="/ground-zero/">☢ Launch the simulator</a>
+    <img src="/ground-zero/og-image.jpg" width="1200" height="630" alt="A true-scale mushroom cloud rising over Paris in the GROUND//ZERO simulator" />
+  </header>
+
+  <main id="content">
+    <h2>What the simulator shows</h2>
+    <p>GROUND//ZERO is a free, open-source nuclear detonation simulator that runs in the browser with WebGPU.
+      Unlike flat blast-radius maps, it renders the event in 3D on a Google-Earth-like globe:</p>
+    <ul>
+      <li><strong>The flash and fireball</strong>: a blackbody fireball that blinds the camera, then rises and rolls into a toroidal vortex.</li>
+      <li><strong>The shockwave</strong>: a refracting pressure front that flattens buildings inside 20 psi and damages them down to 5 psi.</li>
+      <li><strong>The mushroom cloud</strong>: a volumetric cloud with its dust stem and base surge, reaching its real height, then drifting with the upper-level wind and dissipating.</li>
+      <li><strong>Fires</strong>: smoke plumes and flames across the thermal radiation zone, kept off rivers, lakes and the sea.</li>
+      <li><strong>Sound</strong>: silence after the flash, then the blast and a rolling thunder arriving with their real delay for your distance.</li>
+    </ul>
+
+    <h2>Blast radius of famous nuclear weapons</h2>
+    <p>Effects follow the empirical scaling laws of Glasstone &amp; Dolan, <em>The Effects of Nuclear Weapons</em> (1977), for an airburst at the optimal height:</p>
+    <table>
+      <caption class="note">Radii computed by the simulator's physics model (airburst).</caption>
+      <thead><tr><th scope="col">Weapon</th><th scope="col">Yield</th><th scope="col">Fireball</th><th scope="col">5 psi (buildings collapse)</th><th scope="col">3rd-degree burns</th><th scope="col">Cloud top</th></tr></thead>
+      <tbody>
+        <tr><td>Little Boy (Hiroshima)</td><td>15 kt</td><td>177 m</td><td>1.2 km</td><td>2.1 km</td><td>≈ 13 km</td></tr>
+        <tr><td>B83 (US gravity bomb)</td><td>1.2 Mt</td><td>1.0 km</td><td>5.2 km</td><td>12.6 km</td><td>≈ 34 km</td></tr>
+        <tr><td>Tsar Bomba</td><td>50 Mt</td><td>4.5 km</td><td>17.9 km</td><td>53.9 km</td><td>≈ 65 km</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Frequently asked questions</h2>
+    <h3>How far does a nuclear blast reach?</h3>
+    <p>It depends on the yield: blast radii grow with the cube root of the yield. A Hiroshima-size 15 kt bomb collapses
+      houses out to about 1.2 km and breaks windows out to 3.1 km; a 1.2 Mt weapon collapses houses out to about 5 km.</p>
+    <h3>Why does the sound arrive after the flash?</h3>
+    <p>Light is instantaneous at these distances, but the shock wave travels at roughly the speed of sound.
+      20 km away, the blast arrives about a minute after the flash — the simulator reproduces that silence.</p>
+    <h3>How long does a mushroom cloud last?</h3>
+    <p>It stabilises within minutes, then the upper-level wind tilts its stem and carries the cap away; it spreads, thins
+      and dissipates within roughly twenty to thirty minutes.</p>
+    <h3>Is the simulation accurate?</h3>
+    <p>Radii follow published scaling laws; casualty figures use a simplified population-density model.
+      It is an educational visualisation, not a planning tool.</p>
+
+    <h2>Free and open source</h2>
+    <p>The simulator is free, needs no account and runs entirely in your browser. Its code is published under the MIT
+      license on <a href="https://github.com/albedo83/ground-zero" rel="noopener">GitHub</a>. Map data: Sentinel-2 cloudless
+      (EOX), AWS Terrain Tiles, OpenFreeMap / OpenMapTiles © OpenStreetMap contributors.</p>
+    <p><a class="cta" href="/ground-zero/">☢ Launch the simulator</a></p>
+  </main>
+
+  <footer>
+    <a href="/ground-zero/">Simulator</a> · <a href="/ground-zero/fr/" hreflang="fr" lang="fr">Version française</a> ·
+    <a href="https://github.com/albedo83/ground-zero" rel="noopener">Source code</a>
+  </footer>
+</body>
+</html>
