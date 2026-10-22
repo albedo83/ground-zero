@@ -124,3 +124,9 @@ fenêtre modale avec piège de focus et Échap, annonces `aria-live` (cible, dé
 cibles tactiles ≥ 24 px, contraste ≥ 4,5:1, `prefers-reduced-motion` (pas de tremblement, flash adouci).
 Globe au clavier : flèches (déplacer), `+`/`-` (zoom), PgPréc/PgSuiv (inclinaison), `Q`/`E` (rotation),
 Entrée (cible au centre).
+
+## Référencement
+
+- Pages statiques indexables : `public/about/` (EN) et `public/fr/` (FR), liées entre elles (hreflang) et au simulateur.
+- Sitemap à la racine du domaine (`/sitemap.xml`, sur le serveur) ; notification IndexNow (Bing, DuckDuckGo, Yahoo)
+  avec la clé publique `public/<clé>.txt`.
