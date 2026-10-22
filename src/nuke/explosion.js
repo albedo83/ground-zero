@@ -345,11 +345,11 @@ export class Explosion {
     this.S = { strength: uniform(0), white: uniform(0) };
     const S = this.S;
     const mat = new THREE.MeshBasicNodeMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: false });
-    const fres = pow(float(1.0).sub(abs(dot(normalView, positionViewDirection))), 2.5);
+    const fres = pow(float(1.0).sub(abs(dot(normalView, positionViewDirection))), 6.0);
     const offset = normalView.xy.mul(fres).mul(S.strength);
     const bg = viewportSharedTexture(screenUV.add(offset)).rgb;
     mat.colorNode = bg.add(vec3(1.0, 0.97, 0.92).mul(fres).mul(S.white));
-    mat.opacityNode = clamp(fres.mul(4.0), 0.0, 1.0);
+    mat.opacityNode = smoothstep(0.05, 0.6, fres);
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 96, 48), mat);
     mesh.matrixAutoUpdate = false;
     mesh.frustumCulled = false;
@@ -565,7 +565,7 @@ export class Explosion {
     this.shell.visible = this.refraction !== false && shellLife > 0.01 && t > 0.05;
     this.shell.matrix.copy(this.frame).multiply(new THREE.Matrix4().makeTranslation(0, s.hob, 0)).multiply(new THREE.Matrix4().makeScale(shockR, shockR, shockR));
     this.shell.matrixWorldNeedsUpdate = true;
-    this.S.strength.value = 0.018 * shellLife;
+    this.S.strength.value = 0.012 * shellLife;
     this.S.white.value = 0.03 * shellLife + s.wilson * 0.06;
 
     // lumière du flash

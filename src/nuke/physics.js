@@ -567,7 +567,8 @@ export function explosionTimeline(effects, tSec) {
 
   // Étendue englobante pour le raymarching (la dérive élargit le cylindre)
   const radiusBound = Math.max(fireballR * 1.4, spreadMajor + spreadMinor * 1.6, surgeR + surgeH * 1.5, wilson > 0.01 ? wilsonR * 1.1 : 0) + driftM + 50;
-  const heightBound = Math.max(capC + spreadMinor * 1.5, hob + fireballR * 1.4, surgeH * 2) + 50;
+  // le volume doit contenir toute la coquille de Wilson (sinon elle est coupée à plat en haut)
+  const heightBound = Math.max(capC + spreadMinor * 1.5, hob + fireballR * 1.4, surgeH * 2, wilson > 0.01 ? hob + wilsonR * 1.15 : 0) + 50;
 
   return {
     ...s0,
