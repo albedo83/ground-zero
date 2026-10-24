@@ -250,8 +250,11 @@ export class Explosion {
 
       const span = tFar.sub(tNear);
       const ds = span.div(float(U.steps));
-      // bruit à gradient entrelacé : décalage de départ structuré, lissé ensuite par le flou de composition
-      const jitter = fract(fract(dot(screenCoordinate.xy, vec2(0.06711056, 0.00583715))).mul(52.9829189));
+      // décalage de départ en bruit blanc (hash de D. Hoskins) : un motif structuré, une fois la passe
+      // agrandie depuis sa basse résolution, devenait une grille de points visible ; le bruit blanc se lisse
+      const h3 = fract(vec3(screenCoordinate.x, screenCoordinate.y, screenCoordinate.x).mul(0.1031)).toVar();
+      h3.addAssign(dot(h3, vec3(h3.y, h3.z, h3.x).add(33.33)));
+      const jitter = fract(h3.x.add(h3.y).mul(h3.z));
       const tc = tNear.add(ds.mul(jitter)).toVar();
 
       const sun = normalize(U.sunDir);

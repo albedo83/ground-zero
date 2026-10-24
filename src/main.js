@@ -111,14 +111,14 @@ const controls = new EarthControls(canvas, camera, globe);
 const labels = new CityLabels(globe, camera, $('#city-labels'), { max: isTouch ? 22 : 45 });
 const sound = new NuclearSoundEngine();
 
-// filtre « tente » léger (5 échantillons) : efface le bruit du raymarching sans flouter les volutes
+// flou gaussien 3×3 sur la passe du nuage (rayon : 1 texel de la basse résolution) :
+// efface le bruit d'échantillonnage du raymarching sans brouiller les volutes
 const volTex = volumePass.getTextureNode('output');
 const px = vec2(1.0).div(screenSize.mul(uVolScale));
-const volume = volTex.sample(screenUV).mul(0.4)
-  .add(volTex.sample(screenUV.add(px.mul(vec2(0.75, 0.75)))).mul(0.15))
-  .add(volTex.sample(screenUV.add(px.mul(vec2(-0.75, 0.75)))).mul(0.15))
-  .add(volTex.sample(screenUV.add(px.mul(vec2(0.75, -0.75)))).mul(0.15))
-  .add(volTex.sample(screenUV.add(px.mul(vec2(-0.75, -0.75)))).mul(0.15));
+const tap = (dx, dy, w) => volTex.sample(screenUV.add(px.mul(vec2(dx, dy)))).mul(w);
+const volume = tap(0, 0, 0.25)
+  .add(tap(1, 0, 0.125)).add(tap(-1, 0, 0.125)).add(tap(0, 1, 0.125)).add(tap(0, -1, 0.125))
+  .add(tap(1, 1, 0.0625)).add(tap(-1, 1, 0.0625)).add(tap(1, -1, 0.0625)).add(tap(-1, -1, 0.0625));
 const composite = sceneColor.rgb.mul(float(1).sub(volume.a)).add(volume.rgb);
 const bloomPass = bloom(composite, 0.55, 0.55, 0.95);
 const uFilm = uniform(1);
