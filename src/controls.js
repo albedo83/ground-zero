@@ -6,6 +6,7 @@ import { geodeticToEcef, ecefToGeodetic, enu, A } from './geo.js';
 
 const MIN_RANGE = 40;
 const MAX_RANGE = A * 4;
+const AIM_LIFTED = 50;   // au-delà (m), la visée est en l'air et ne touche plus le sol
 const v3 = (a) => new THREE.Vector3(a[0], a[1], a[2]);
 
 class View {
@@ -104,6 +105,8 @@ export class EarthControls {
       this.mode = rotate ? 'rotate' : 'pan';
       this.last = { x: e.clientX, y: e.clientY };
       if (this.mode === 'pan') {
+        // visée en altitude : aucun point du sol à saisir, on fait glisser le cadre
+        if (this.desired.aim > AIM_LIFTED) { this.mode = 'slide'; return; }
         this.grab = this.pick(e.clientX, e.clientY);
         if (!this.grab) this.mode = 'spin';
       }
@@ -120,6 +123,8 @@ export class EarthControls {
       } else if (this.mode === 'rotate') {
         this.desired.heading -= dx * 0.005;
         this.desired.pitch = THREE.MathUtils.clamp(this.desired.pitch - dy * 0.005, 0, this.pitchLimit());
+      } else if (this.mode === 'slide') {
+        this.slide(dx, dy);
       } else if (this.mode === 'spin') {
         const k = this.desired.range / A;
         this.desired.lon -= dx * 0.003 * k;
@@ -149,9 +154,11 @@ export class EarthControls {
       if (this.pointers.size === 1) {
         const [p] = this.pointers.values();
         this.last = { x: p.x, y: p.y };
-        this.mode = 'pan';
-        this.grab = this.pick(p.x, p.y);
-        if (!this.grab) this.mode = 'spin';
+        this.mode = this.desired.aim > AIM_LIFTED ? 'slide' : 'pan';
+        if (this.mode === 'pan') {
+          this.grab = this.pick(p.x, p.y);
+          if (!this.grab) this.mode = 'spin';
+        }
       } else if (!this.pointers.size) this.mode = null;
     };
     el.addEventListener('pointerup', end);
@@ -208,8 +215,30 @@ export class EarthControls {
       heading: this.desired.heading, pitch: this.desired.pitch, aim: 0, duration: 1.2, radians: true });
   }
 
+  // déplace le cadre à l'horizontale pour que le point visé suive le curseur, selon le cap de la vue
+  slide(dx, dy) {
+    const d = this.desired;
+    const m = (2 * d.range * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2)) / this.dom.getBoundingClientRect().height;
+    const ch = Math.cos(d.heading), sh = Math.sin(d.heading);
+    const east = m * (-dx * ch + dy * sh), north = m * (dx * sh + dy * ch);
+    d.lat = THREE.MathUtils.clamp(d.lat + north / A, -1.5, 1.5);
+    d.lon += east / (A * Math.max(0.2, Math.cos(d.lat)));
+  }
+
+  // ramène la visée au sol sans déplacer la caméra (le zoom et la saisie du sol redeviennent normaux)
+  settleAim(dt) {
+    const d = this.desired;
+    if (d.aim <= 0) return;
+    const D = d.range * Math.sin(d.pitch);
+    const hc = d.aim + d.range * Math.cos(d.pitch);
+    d.aim = d.aim < 1 ? 0 : d.aim * Math.exp(-dt * 1.2);
+    d.range = THREE.MathUtils.clamp(Math.hypot(D, hc - d.aim), MIN_RANGE, MAX_RANGE);
+    d.pitch = Math.min(Math.atan2(D, hc - d.aim), this.pitchLimit());
+  }
+
   zoomAt(x, y, factor) {
-    const before = this.pick(x, y);
+    // visée en altitude : le zoom se fait sur le point visé (le nuage)
+    const before = this.desired.aim > AIM_LIFTED ? null : this.pick(x, y);
     this.desired.range = THREE.MathUtils.clamp(this.desired.range * factor, MIN_RANGE, MAX_RANGE);
     this.desired.pitch = Math.min(this.desired.pitch, this.pitchLimit());
     if (before) {
@@ -236,7 +265,7 @@ export class EarthControls {
 
   // au-dessus d'un point visé en altitude, on peut regarder vers le haut
   pitchLimit() {
-    return this.desired.aim > 50 ? THREE.MathUtils.degToRad(105) : maxPitchFor(this.desired.range);
+    return this.desired.aim > AIM_LIFTED ? THREE.MathUtils.degToRad(105) : maxPitchFor(this.desired.range);
   }
 
   flyTo({ lat, lon, range, heading = 0, pitch = 0, aim = 0, duration, radians = false }) {

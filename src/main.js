@@ -411,13 +411,15 @@ $('#city-presets-toggle').onclick = () => {
 document.addEventListener('click', (e) => { if (!e.target.closest('.target-bar')) closeDropdown(); });
 document.addEventListener('focusin', (e) => { if (!e.target.closest('.target-bar')) closeDropdown(); });
 
+// pendant une frappe un clic ne doit pas l'interrompre ; une fois terminée, il choisit la cible suivante
+const simRunning = () => state.armed || (state.detonated && state.t < simEnd());
 controls.onClick = (lat, lon) => {
-  if (state.detonated || state.armed) return;
+  if (simRunning()) return;
   setTarget(lat, lon, null, { fly: false });
 };
 controls.onUserInput = () => { state.tracking = false; };
 controls.onKeyTarget = () => {
-  if (state.detonated || state.armed) return;
+  if (simRunning()) return;
   const c = controls.desired;
   setTarget(r2d(c.lat), r2d(c.lon), null, { fly: false });
 };
@@ -759,6 +761,11 @@ renderer.setAnimationLoop(() => {
     const p = poseFor(c.D, c.hc, d.aim);
     d.range = p.range;
     d.pitch = d2r(p.pitch);
+  }
+
+  // le nuage parti, plus rien à viser en l'air : la vue libre revient au sol
+  if (!state.tracking && !controls.flight && (!state.detonated || explosion.state?.dissipated || state.t >= simEnd())) {
+    controls.settleAim(dt);
   }
 
   const pose = controls.update(dt);
