@@ -257,6 +257,25 @@ export function checkRoughLandmask(lat, lon) {
 }
 
 /**
+ * Profil de vent simplifié : vitesse croissante jusqu'à la tropopause et direction qui tourne avec
+ * l'altitude (cisaillement). Vents d'ouest aux latitudes moyennes, alizés d'est sous les tropiques,
+ * avec une variation déterministe selon le lieu.
+ */
+export function makeWind(lat, lon) {
+  const h = Math.abs(Math.sin(lat * 7.13 + lon * 3.71) * 4375.85) % 1;
+  const base = Math.abs(lat) < 25 ? Math.PI : 0;
+  return { baseDir: base + (h - 0.5) * 0.9, veer: 0.45 + 0.5 * h * (lat >= 0 ? 1 : -1) };
+}
+
+/** Vent à l'altitude h : [vers l'est, vers le sud] en m/s */
+export function windAt(h, wind) {
+  const u = Math.min(1, Math.max(0, h / 11000));
+  const speed = (3 + 19 * Math.pow(u, 0.7)) * Math.exp(-Math.max(0, h - 11000) / 14000);
+  const dir = wind.baseDir + wind.veer * Math.min(1, Math.max(0, h / 12000)) - wind.veer * 0.4;
+  return [speed * Math.cos(dir), -speed * Math.sin(dir)];
+}
+
+/**
  * Computes WSEG-10 / Glasstone & Dolan Ch. IX Radioactive Fallout Contours
  * Fallout is severe when the fireball touches the ground (Surface Burst) and minimal for high airbursts.
  */
@@ -370,7 +389,17 @@ export function calculateNuclearEffects(yieldKt, lat = 16.49, lon = 29.21, burst
   const estDeaths = Math.round(rawDeaths);
   const estInjured = Math.round(rawInjured);
 
-  const fallout = calculateFalloutPlume(Y, burstMode);
+  // Retombées : portées par le vent moyen de la colonne de débris
+  const wind = makeWind(lat, lon);
+  const meanV = windAt(cloudTopKm * 500, wind);
+  const meanSpeed = Math.hypot(meanV[0], meanV[1]);
+  const fallout = calculateFalloutPlume(Y, burstMode, meanSpeed * 3.6, (Math.atan2(-meanV[1], meanV[0]) * 180) / Math.PI);
+  // courbure de l'axe du panache : les débris tombent à travers des couches de vent différentes
+  const lowV = windAt(cloudTopKm * 250, wind), highV = windAt(cloudTopKm * 750, wind);
+  fallout.bend = 0.5 * (Math.atan2(-highV[1], highV[0]) - Math.atan2(-lowV[1], lowV[0]));
+  fallout.meanSpeed = meanSpeed;
+  fallout.lengthM = fallout.contours[2].downwindM;
+  fallout.arrivalSec = fallout.lengthM / meanSpeed;
 
   return {
     yieldKt: Y,
@@ -394,10 +423,12 @@ export function calculateNuclearEffects(yieldKt, lat = 16.49, lon = 29.21, burst
       blast20Psi: formatDistance(blast20PsiRadiusM),
       blast5Psi: formatDistance(blast5PsiRadiusM),
       thermal: formatDistance(thermalRadiusM),
+      fallout: formatDistance(fallout.lengthM),
       blast1Psi: formatDistance(blast1PsiRadiusM),
       radiation500Rem: formatDistance(rad500RemM)
     },
     fallout,
+    wind,
     casualties: {
       deaths: estDeaths,
       injured: estInjured,
@@ -533,13 +564,14 @@ export function explosionTimeline(effects, tSec) {
   // Tige : poussière aspirée depuis le sol par les vents de retour
   const tStem = 0.6 * y13 + 0.4 * tR;
   const stemTop = Math.max(0, Math.min(capC - capMinor * 0.5, (capC + 60) * smooth(tStem, tStem + 0.9 * tau, t)));
-  const stemR = RcapF * (0.05 + 0.07 * g) * smooth(tStem, tStem + 4, t) + 1;
+  const surface = effects.burstMode === 'surface';
+  const stemR = RcapF * (0.05 + 0.07 * g) * smooth(tStem, tStem + 4, t) * (surface ? 1.55 : 1) + 1;
 
   // Nuage de base (poussière soulevée derrière le front de choc)
   const r5 = effects.radii.blast5PsiM;
   const surgeR = Math.min(s0.shockRadiusM, r5 * 1.15) * (1 + 0.15 * s);
   const surgeH = (40 + 0.07 * surgeR) * smooth(0.2, 3, t);
-  const surgeDensity = smooth(0.2 * y13, 1.2 * y13, t) * Math.exp(-Math.max(0, t - 3 * tau) / (2 * tau));
+  const surgeDensity = (surface ? 1.7 : 1) * smooth(0.2 * y13, 1.2 * y13, t) * Math.exp(-Math.max(0, t - 3 * tau) / (2 * tau));
 
   // Nuage de condensation de Wilson (coquille blanche éphémère)
   const ws = Math.pow(Y / 20, 1 / 3);
@@ -560,10 +592,17 @@ export function explosionTimeline(effects, tSec) {
   const spreadMinor = capMinor * (1 + 0.3 * late);
   const stemFade = 1 - smooth(4 * tau, 14 * tau, t);
   const fade = 1 - smooth(12 * tau, 48 * tau, t);
-  const windMs = 16 + 6 * big01(Y);                       // vent en altitude (jet stream modéré)
-  const driftM = windMs * Math.max(0, t - 1.5 * tau) * (0.4 + 0.6 * smooth(1.5 * tau, 6 * tau, t));
-  const windDir = 0.35;                                     // vers l'est-nord-est (rad, depuis l'est)
-  const driftX = driftM * Math.cos(windDir), driftZ = -driftM * Math.sin(windDir);
+  // chaque couche dérive à sa propre vitesse : la tige se courbe (cisaillement du vent)
+  const driftT = Math.max(0, t - 1.5 * tau) * (0.4 + 0.6 * smooth(1.5 * tau, 6 * tau, t)) * (1 + 0.3 * big01(Y));
+  const vTop = windAt(capC, effects.wind), vMid = windAt(capC * 0.5, effects.wind);
+  const driftX = vTop[0] * driftT, driftZ = vTop[1] * driftT;
+  // point de contrôle de la courbe de Bézier qui passe par la dérive de mi-hauteur
+  const driftCx = 2 * vMid[0] * driftT - 0.5 * driftX, driftCz = 2 * vMid[1] * driftT - 0.5 * driftZ;
+  const driftM = Math.max(Math.hypot(driftX, driftZ), Math.hypot(driftCx, driftCz));
+
+  // Front de retombées au sol : le dépôt progresse à la vitesse du vent moyen
+  const falloutFront = effects.fallout.meanSpeed * Math.max(0, t - 0.5 * tau);
+  const fallRate = smooth(0.8 * tau, 3 * tau, t) * (1 - smooth(16 * tau, 60 * tau, t));
 
   // Étendue englobante pour le raymarching (la dérive élargit le cylindre)
   const radiusBound = Math.max(fireballR * 1.4, spreadMajor + spreadMinor * 1.6, surgeR + surgeH * 1.5, wilson > 0.01 ? wilsonR * 1.1 : 0) + driftM + 50;
@@ -573,7 +612,8 @@ export function explosionTimeline(effects, tSec) {
   return {
     ...s0,
     t, tau, hob, fireballR, capC, capMajor: spreadMajor, capMinor: spreadMinor, toroid,
-    stemFade, fade, driftX, driftZ, driftM, dissipated: fade < 0.01,
+    stemFade, fade, driftX, driftZ, driftCx, driftCz, driftM, dissipated: fade < 0.01,
+    falloutFront, fallRate,
     stemTop, stemR, surgeR, surgeH, surgeDensity,
     wilson, wilsonR, coreTemp, coreFade, brightness,
     radiusBound, heightBound,

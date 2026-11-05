@@ -10,6 +10,7 @@ import {
   texture3D, positionLocal, step, max,
 } from 'three/tsl';
 import { geodeticToEcef, ecefToGeodetic } from '../geo.js';
+import { windAt } from './physics.js';
 
 const MAX_PLUMES = 360;
 const LAYERS = {
@@ -203,6 +204,9 @@ export class Fires {
     // allumage puis embrasement (tempête de feu) sur une dizaine de minutes
     U.fireI.value = smooth(2, 25, simT) * (0.65 + 0.35 * smooth(60, 600, simT));
     U.plumeH.value = 520 * Math.pow(Math.max(1, effects.yieldKt) / 15, 0.22);
+    // la fumée suit le vent des basses couches
+    const low = windAt(600, effects.wind), n = Math.hypot(low[0], low[1]) || 1;
+    U.wind.value.set(low[0] / n, low[1] / n);
     // axes de la caméra exprimés dans le repère local (billboards)
     const b = this.ex.basis;
     const m = cameraMatrixWorld.elements;

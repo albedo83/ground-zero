@@ -26,7 +26,9 @@ Raccourcis : `Espace` détoner · `1-4` vues (globe, cinéma, tactique, témoin)
 | Caméra | Flash qui sature, iris automatique, bloom HDR, grain/vignette, tremblement à l'arrivée du souffle, bandes cinéma |
 | Son | Flash immédiat, boom retardé par la distance réelle (≈ 340 m/s), grondement filtré selon la surpression reçue |
 | Temps | Temps réel pendant le flash et le souffle, puis accéléré « documentaire » (AUTO, jusqu'à 30×), frise sur 30 min |
-| Dissipation | Le vent d'altitude emporte le nuage : la tige s'incline et se rompt, le chapeau s'étale puis s'efface (~20–25 min) |
+| Dissipation | Le vent d'altitude emporte le nuage : la tige se courbe (cisaillement) et se rompt, le chapeau s'étale puis s'efface (~20–25 min) |
+| Type d'explosion | Au sol : terre aspirée, nuage sombre, tige épaisse. En altitude : nuage clair. Sur l'eau : colonne de vapeur blanche |
+| Retombées | Estimation pédagogique (WSEG-10 simplifié) : panache de débit de dose drapé sur le relief, front de dépôt, rideau de débris sous le nuage ; quasi nul en altitude |
 
 ## Données (0 €, appelées directement par le navigateur)
 
@@ -43,6 +45,7 @@ Raccourcis : `Espace` détoner · `1-4` vues (globe, cinéma, tactique, témoin)
 - `src/nuke/explosion.js` : volume, coquille de choc, voile au sol, lumière du flash.
 - `src/nuke/buildingMaterial.js` : effondrement et incendies des bâtiments.
 - `src/nuke/fires.js` : incendies au sol (fumée, flammes, braises).
+- `src/nuke/fallout.js` : retombées (panache au sol, rideau de débris).
 - `src/nuke/physics.js`, `src/nuke/sound.js` : physique et son (repris puis étendus de `../ground-zero`).
 - `src/main.js` : rendu HDR, horloge de simulation, modes caméra, HUD.
 - `src/labels.js` : noms des villes (couche « place » d'OpenFreeMap), triés par importance, sans chevauchement, dans la langue du navigateur.

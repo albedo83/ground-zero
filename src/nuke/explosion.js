@@ -17,6 +17,7 @@ import { explosionTimeline } from './physics.js';
 import { getNoiseTexture } from './noise3d.js';
 import { damage } from './damage.js';
 import { Fires } from './fires.js';
+import { Fallout } from './fallout.js';
 
 // le nombre de pas et les échantillons d'ombrage dépendent du niveau de qualité (uniformes : pas de recompilation)
 
@@ -54,7 +55,10 @@ export class Explosion {
       wilson: uniform(0), wilsonR: uniform(1),
       coreTemp: uniform(6000), bright: uniform(0), coreFade: uniform(1),
       roll: uniform(0), age: uniform(0),
-      drift: uniform(new THREE.Vector2()), // dérive du nuage (m, repère local est/sud)
+      drift: uniform(new THREE.Vector2()),  // dérive du chapeau (m, repère local est/sud)
+      driftC: uniform(new THREE.Vector2()), // point de contrôle : la tige se courbe avec le cisaillement
+      dirty: uniform(0),                    // 1 = explosion au sol : terre aspirée, nuage sombre
+      water: uniform(0),                    // 1 = explosion sur l'eau : colonne de vapeur blanche
       fade: uniform(1),                    // dissipation finale du chapeau et de la tige
       sunDir: uniform(new THREE.Vector3(0.4, 0.8, 0.3)),
       visibility: uniform(60000),
@@ -65,6 +69,7 @@ export class Explosion {
     this.buildShockShell();
     this.buildGroundOverlay();
     this.fires = new Fires(this);
+    this.fallout = new Fallout(this);
 
     this.light = new THREE.PointLight(0xffe2b8, 0, 0, 2);
     this.group.add(this.light);
@@ -89,6 +94,15 @@ export class Explosion {
     }
     this.rebuildOverlayHeights();
     this.group.visible = true;
+  }
+
+  // point zéro sur l'eau ? (mer, lac : la colonne devient de la vapeur blanche)
+  async detectWater() {
+    try {
+      const pts = new Float64Array([this.lon, this.lat]);
+      const { land } = await this.globe.pool.run({ type: 'landmask', points: pts, ...this.gzTile() });
+      this.U.water.value = land[0] ? 0 : 1;
+    } catch { /* tuiles vectorielles indisponibles : sol par défaut */ }
   }
 
   // tuile z14 du point zéro : sert à router les requêtes vers le worker qui a déjà ces tuiles en cache
@@ -126,6 +140,8 @@ export class Explosion {
     this.O.rings.value = 0;
     damage.active.value = 1;
     this.fires.place();
+    this.fallout.start();
+    this.detectWater();
   }
 
   reset() {
@@ -139,6 +155,8 @@ export class Explosion {
     this.shell.visible = false;
     this.light.intensity = 0;
     this.fires.reset();
+    this.fallout.reset();
+    this.U.water.value = 0;
   }
 
   // ---------- Nuage volumétrique ----------
@@ -149,8 +167,9 @@ export class Explosion {
 
     const field = Fn(([p0]) => {
       // le vent d'altitude emporte le nuage : décalage croissant avec la hauteur (la tige s'incline)
-      const lean = smoothstep(0.0, max(U.capC, 1.0), p0.y);
-      const p = p0.sub(vec3(U.drift.x.mul(lean), 0.0, U.drift.y.mul(lean)));
+      const l = clamp(p0.y.div(max(U.capC, 1.0)), 0.0, 1.0);
+      const off = U.driftC.mul(l.mul(float(1.0).sub(l)).mul(2.0)).add(U.drift.mul(l.mul(l)));
+      const p = p0.sub(vec3(off.x, 0.0, off.y));
       const r = length(p.xz);
       const dy = p.y.sub(U.capC);
 
@@ -289,8 +308,12 @@ export class Explosion {
           const powder = float(1.0).sub(exp(sigma.mul(ds).mul(-2.0)).mul(0.6));
 
           // albédo : NO₂ brun-rouge qui blanchit avec la condensation, poussière, vapeur blanche
-          const capAlb = mix(vec3(0.27, 0.19, 0.14), vec3(0.62, 0.6, 0.6), smoothstep(30.0, 180.0, U.t));
-          const dustAlb = vec3(0.34, 0.3, 0.26);
+          // explosion au sol : la terre aspirée assombrit tout le nuage ; sur l'eau : vapeur blanche
+          const capLate = mix(vec3(0.62, 0.6, 0.6), vec3(0.33, 0.3, 0.28), U.dirty);
+          const capEarly = mix(vec3(0.27, 0.19, 0.14), vec3(0.15, 0.115, 0.09), U.dirty);
+          const capDry = mix(capEarly, capLate, smoothstep(30.0, 180.0, U.t));
+          const capAlb = mix(capDry, vec3(0.78, 0.8, 0.84), U.water.mul(smoothstep(4.0, 40.0, U.t)));
+          const dustAlb = mix(mix(vec3(0.34, 0.3, 0.26), vec3(0.2, 0.17, 0.14), U.dirty), vec3(0.86, 0.88, 0.92), U.water);
           const alb = mix(mix(capAlb, dustAlb, f.z), vec3(0.95, 0.96, 1.0), f.w);
 
           const hgt = clamp(p.y.div(max(U.capC.add(U.capMinor), 1.0)), 0.0, 1.0);
@@ -539,6 +562,8 @@ export class Explosion {
     U.capC.value = s.capC; U.capMajor.value = s.capMajor; U.capMinor.value = s.capMinor; U.toroid.value = s.toroid;
     U.stemTop.value = s.stemTop; U.stemR.value = s.stemR; U.stemVis.value = s.stemTop > 5 ? s.stemFade : 0;
     U.drift.value.set(s.driftX, s.driftZ);
+    U.driftC.value.set(s.driftCx, s.driftCz);
+    U.dirty.value = e.burstMode === 'surface' ? 1 : 0;
     U.fade.value = s.fade;
     U.surgeR.value = Math.max(1, s.surgeR); U.surgeH.value = Math.max(1, s.surgeH); U.surgeDen.value = s.surgeDensity;
     U.wilson.value = s.wilson; U.wilsonR.value = Math.max(1, s.wilsonR);
@@ -579,7 +604,10 @@ export class Explosion {
     this.light.distance = Math.max(e.radii.thermalM, e.radii.blast1PsiM) * 2.5;
     this.light.color.setRGB(1, 0.75 + 0.2 * Math.min(1, s.coreTemp / 6000), 0.5 + 0.45 * Math.min(1, s.coreTemp / 7000));
 
-    if (camMatrix) this.fires.update(t, performance.now() / 1000, camMatrix, e);
+    if (camMatrix) {
+      this.fires.update(t, performance.now() / 1000, camMatrix, e);
+      this.fallout.update(s, performance.now() / 1000, camMatrix);
+    }
 
     // uniformes partagés (bâtiments, sol)
     damage.time.value = t;

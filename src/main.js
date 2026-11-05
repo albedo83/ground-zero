@@ -81,10 +81,10 @@ fog.color.setRGB(0.3, 0.52, 0.88, THREE.LinearSRGBColorSpace);
 // Chaque niveau règle : résolution max, résolution et nombre de pas du nuage, ombrage du nuage,
 // bloom, réfraction de l'onde de choc, finesse des tuiles et portée des bâtiments 3D.
 const QUALITY = {
-  low: { label: 'Low', dpr: 1, vol: 0.34, steps: 36, shadow2: 0, ao: 0, bloom: false, refraction: false, sse: 2.0, buildings: 2500, fires: 90 },
-  medium: { label: 'Medium', dpr: 1.25, vol: 0.42, steps: 48, shadow2: 0, ao: 1, bloom: true, refraction: true, sse: 1.5, buildings: 4500, fires: 160 },
-  high: { label: 'High', dpr: 1.5, vol: 0.5, steps: 64, shadow2: 1, ao: 1, bloom: true, refraction: true, sse: 1.25, buildings: 7000, fires: 250 },
-  ultra: { label: 'Ultra', dpr: 2, vol: 0.6, steps: 80, shadow2: 1, ao: 1, bloom: true, refraction: true, sse: 1.1, buildings: 9000, fires: 360 },
+  low: { label: 'Low', dpr: 1, vol: 0.34, steps: 36, shadow2: 0, ao: 0, bloom: false, refraction: false, sse: 2.0, buildings: 2500, fires: 90, flakes: 300 },
+  medium: { label: 'Medium', dpr: 1.25, vol: 0.42, steps: 48, shadow2: 0, ao: 1, bloom: true, refraction: true, sse: 1.5, buildings: 4500, fires: 160, flakes: 600 },
+  high: { label: 'High', dpr: 1.5, vol: 0.5, steps: 64, shadow2: 1, ao: 1, bloom: true, refraction: true, sse: 1.25, buildings: 7000, fires: 250, flakes: 900 },
+  ultra: { label: 'Ultra', dpr: 2, vol: 0.6, steps: 80, shadow2: 1, ao: 1, bloom: true, refraction: true, sse: 1.1, buildings: 9000, fires: 360, flakes: 1400 },
 };
 const TIERS = ['low', 'medium', 'high', 'ultra'];
 // point de départ prudent selon la machine ; le niveau s'ajuste ensuite à la fluidité mesurée
@@ -245,6 +245,10 @@ function refresh() {
   $('#radius-5psi').textContent = e.formattedRadii.blast5Psi;
   $('#radius-20psi').textContent = e.formattedRadii.blast20Psi;
   $('#radius-fireball').textContent = e.formattedRadii.fireball;
+  $('#radius-fallout').textContent = e.fallout.active ? e.formattedRadii.fallout : 'minimal';
+  $('#fallout-desc').textContent = e.fallout.active
+    ? 'Downwind plume, 1 h after the blast — shelter or evacuate'
+    : 'Airburst: almost no soil lofted — try SURFACE';
   $('#report-deaths').textContent = fmt(e.casualties.deaths);
   $('#report-injured').textContent = fmt(e.casualties.injured);
   $('#report-density').textContent = `density: ${e.casualties.densityLabel} — simplified model`;
@@ -459,7 +463,13 @@ function setView(mode) {
     controls.flyTo({ lat: state.lat, lon: state.lon, range: A * 2.4, heading: 0, pitch: 0 });
   } else if (mode === 'tactical') {
     state.tracking = false;
-    controls.flyTo({ lat: state.lat, lon: state.lon, range: Math.max(e.radii.blast1PsiM, e.radii.thermalM) * 3.4, heading, pitch: 48 });
+    // après une frappe au sol, on cadre aussi le panache de retombées
+    const plume = state.detonated && e.fallout.active ? e.fallout.lengthM : 0;
+    const a = (e.fallout.windAngleDeg * Math.PI) / 180;
+    const mPerDeg = 111320;
+    const lat = state.lat + (plume * 0.4 * Math.sin(a)) / mPerDeg;
+    const lon = state.lon + (plume * 0.4 * Math.cos(a)) / (mPerDeg * Math.cos(d2r(state.lat)));
+    controls.flyTo({ lat, lon, range: Math.max(Math.max(e.radii.blast1PsiM, e.radii.thermalM) * 3.4, plume * 1.25), heading, pitch: 48 });
   } else {
     const c = cinemaPose(mode);
     const aim = trackAim(mode);
@@ -519,6 +529,7 @@ function stepArming(dt) {
   explosion.setTarget(state.lat, state.lon);
   explosion.setEffects(e);
   explosion.detonate();
+  $('#timeline-scrub-slider').max = String(Math.round(simEnd()));
   // silence au flash ; le son voyage ensuite à sa vraie vitesse jusqu'à la caméra
   const camDist = state.camPos ? explosion.origin.distanceTo(state.camPos) : 20000;
   sound.playDetonationFlash(state.yieldKt, camDist);
@@ -630,6 +641,7 @@ $('#fx-quality').onchange = (e) => {
   else refreshQualityLabel();
 };
 $('#fx-film').onchange = (e) => { uFilm.value = e.target.checked ? 1 : 0; };
+$('#fx-fallout').onchange = (e) => { explosion.fallout.enabled = e.target.checked; };
 let shakeEnabled = true;
 $('#fx-shake').onchange = (e) => { shakeEnabled = e.target.checked; };
 $('#audio-toggle-btn').onclick = (e) => {
@@ -702,7 +714,11 @@ let hudTimer = 0, fpsFrames = 0, fps = 0;
 const shakeQ = new THREE.Quaternion();
 const shakeE = new THREE.Euler();
 
-const T_END = 1800; // 30 min simulées : le nuage a le temps de dériver et de se dissiper
+// au moins 30 min simulées ; plus si le panache de retombées met plus longtemps à se déposer
+const simEnd = () => {
+  const f = state.effects.fallout;
+  return Math.min(36000, Math.max(1800, f.active ? f.arrivalSec * 1.1 : 0));
+};
 
 function simSpeed() {
   if (state.paused) return 0;
@@ -720,10 +736,10 @@ renderer.setAnimationLoop(() => {
   if (state.detonated) {
     if (state.speedMode === 'auto' && state.t > 8 && state.arrived) {
       // temps réel pendant le souffle, puis accéléré « documentaire » de plus en plus fort jusqu'à la dissipation
-      const target = state.t < 30 ? 3 : state.t < 150 ? 8 : 30;
+      const target = state.t < 30 ? 3 : state.t < 150 ? 8 : state.t < 1500 ? 30 : 120;
       state.autoFactor += (target - state.autoFactor) * Math.min(1, dt * 0.6);
     }
-    state.t = Math.min(T_END, state.t + dt * simSpeed());
+    state.t = Math.min(simEnd(), state.t + dt * simSpeed());
   }
 
   // la caméra suit la montée du nuage
@@ -733,7 +749,7 @@ renderer.setAnimationLoop(() => {
     d.aim += (trackAim(state.view) - d.aim) * Math.min(1, dt * 1.5);
     // le cadre suit le nuage emporté par le vent
     const st = explosion.state;
-    if (st && st.driftM > 50) {
+    if (st && st.driftM > 50 && !st.dissipated) {
       const P = explosion.origin.clone()
         .addScaledVector(explosion.basis.e, st.driftX * 0.9).addScaledVector(explosion.basis.s, st.driftZ * 0.9);
       const g = ecefToGeodetic(P.x, P.y, P.z);
@@ -888,6 +904,7 @@ function applyQuality(tier) {
   globe.sse = q.sse;
   globe.buildingRange = q.buildings;
   explosion.fires.setDensity(q.fires);
+  explosion.fallout.setDensity(q.flakes);
   lowFor = highFor = slowFor = smoothFor = 0;
   refreshQualityLabel();
   kick();
@@ -932,7 +949,8 @@ function cloudOccluders(camPos) {
   const focal = window.innerHeight / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
   const O = explosion.origin, b = explosion.basis;
   const at = (h, lean) => O.clone().addScaledVector(b.u, h)
-    .addScaledVector(b.e, s.driftX * lean).addScaledVector(b.s, s.driftZ * lean);
+    .addScaledVector(b.e, 2 * lean * (1 - lean) * s.driftCx + lean * lean * s.driftX)
+    .addScaledVector(b.s, 2 * lean * (1 - lean) * s.driftCz + lean * lean * s.driftZ);
   const out = [];
   const add = (P, rH, rV) => {
     const p = projectPoint(P, camPos);
