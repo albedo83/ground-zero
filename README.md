@@ -25,7 +25,7 @@ Raccourcis : `Espace` détoner · `1-4` vues (globe, cinéma, tactique, témoin)
 | Incendies | Particules GPU : colonnes de fumée noire poussées par le vent, flammes HDR et braises ; foyers répartis dans la zone thermique sur la terre ferme (masque eau OpenFreeMap), embrasement sur ~10 min |
 | Caméra | Flash qui sature, iris automatique, bloom HDR, grain/vignette, tremblement à l'arrivée du souffle, bandes cinéma |
 | Son | Flash immédiat, boom retardé par la distance réelle (≈ 340 m/s), grondement filtré selon la surpression reçue |
-| Temps | Temps réel pendant le flash et le souffle, puis accéléré « documentaire » (AUTO, jusqu'à 30×), frise sur 30 min |
+| Temps | Temps réel pendant le flash et le souffle, puis accéléré « documentaire » (AUTO, jusqu'à 120×, facteur affiché en direct) ; sélecteur visible AUTO / ¼× / 1× / 10× / 60×, qui clignote à la première accélération ; frise sur 30 min ou plus |
 | Dissipation | Le vent d'altitude emporte le nuage : la tige se courbe (cisaillement) et se rompt, le chapeau s'étale puis s'efface (~20–25 min) |
 | Type d'explosion | Au sol : terre aspirée, nuage sombre, tige épaisse. En altitude : nuage clair. Sur l'eau : colonne de vapeur blanche |
 | Retombées | Estimation pédagogique (WSEG-10 simplifié) : panache de débit de dose drapé sur le relief, front de dépôt, rideau de débris sous le nuage ; quasi nul en altitude |

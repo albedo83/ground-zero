@@ -1131,7 +1131,14 @@ body.detonating .mini-bar { opacity: 1; pointer-events: auto; transform: transla
   color: var(--text-primary); font-family: var(--font-mono); font-size: 10px; cursor: pointer;
 }
 .mb-btn:hover { border-color: var(--amber); color: var(--amber-bright); }
-.mb-speed { color: var(--amber-bright); min-width: 44px; letter-spacing: 0.06em; }
+.mb-speed-group { display: flex; align-items: center; gap: 3px; padding-left: 6px; border-left: 1px solid rgba(255, 107, 24, 0.3); }
+.mb-speed-label { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; color: var(--amber-bright); margin-right: 3px; white-space: nowrap; }
+.mb-sp { min-width: 30px; padding: 0 6px; color: var(--text-secondary, #b8c0cc); white-space: nowrap; }
+.mb-sp b { font-weight: 700; font-variant-numeric: tabular-nums; }
+.mb-sp.active { background: rgba(255, 107, 24, 0.22); border-color: rgba(255, 140, 50, 0.85); color: var(--amber-bright); }
+.mb-speed-group.hint .mb-sp:not(.active) { animation: mb-hint 0.9s ease-in-out 5; }
+@keyframes mb-hint { 50% { border-color: var(--amber-bright); box-shadow: 0 0 10px rgba(255, 140, 50, 0.6); color: var(--amber-bright); } }
+@media (prefers-reduced-motion: reduce) { .mb-speed-group.hint .mb-sp:not(.active) { animation: none; border-color: var(--amber-bright); } }
 .mb-reset { color: #ff9494; border-color: rgba(255, 82, 82, 0.35); }
 .mb-time { font-size: 10px; font-weight: 700; min-width: 52px; text-align: right; font-variant-numeric: tabular-nums; }
 .mini-bar #timeline-scrub-slider { width: min(300px, 32vw); flex: none; }
@@ -1141,7 +1148,9 @@ body.cinematic.detonating .mini-bar:hover { opacity: 1; }
 
 @media (orientation: landscape) and (max-height: 520px) {
   .mini-bar { bottom: max(6px, env(safe-area-inset-bottom)); height: 28px; gap: 6px; }
-  .mini-bar #timeline-scrub-slider { width: 30vw; }
+  .mini-bar #timeline-scrub-slider { width: 22vw; }
+  .mb-speed-label { display: none; }
+  .mb-sp { min-width: 26px; padding: 0 4px; }
   .mb-btn { height: 22px; font-size: 10px; }
   body.detonating .hud-bottom-right { display: none; }
 }

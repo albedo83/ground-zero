@@ -533,6 +533,7 @@ function stepArming(dt) {
   state.t = 0;
   state.arrived = false;
   state.autoFactor = 1;
+  speedHinted = false;
   state.glare = 0;
   explosion.setTarget(state.lat, state.lon);
   explosion.setEffects(e);
@@ -568,9 +569,7 @@ function showAlert(text, ms = 0) {
 }
 
 $('#detonate-btn').onclick = detonate;
-// barre de contrôle réduite : lecture/pause, frise, vitesse (cycle), nouvelle frappe
-const SPEEDS = ['auto', '0.25', '1', '10'];
-const speedLabel = (m) => (m === 'auto' ? 'AUTO' : `${m}×`);
+// barre de contrôle réduite : lecture/pause, frise, vitesses visibles d'un coup d'œil, nouvelle frappe
 function setPaused(p) {
   state.paused = p;
   const b = $('#mb-play');
@@ -579,13 +578,26 @@ function setPaused(p) {
   b.setAttribute('aria-label', b.title);
 }
 $('#mb-play').onclick = () => { sound.playClick(900); setPaused(!state.paused); };
-$('#mb-speed').onclick = () => {
-  sound.playClick(1000);
-  state.speedMode = SPEEDS[(SPEEDS.indexOf(state.speedMode) + 1) % SPEEDS.length];
-  $('#mb-speed').textContent = speedLabel(state.speedMode);
-  $('#mb-speed').setAttribute('aria-label', `Playback speed: ${state.speedMode === 'auto' ? 'auto' : `${state.speedMode} times`}`);
-  setPaused(false);
-};
+function setSpeed(mode) {
+  state.speedMode = mode;
+  document.querySelectorAll('.mb-sp').forEach((b) => {
+    const on = b.dataset.speed === mode;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+}
+document.querySelectorAll('.mb-sp').forEach((b) => {
+  b.onclick = () => { sound.playClick(1000); setSpeed(b.dataset.speed); setPaused(false); };
+});
+// la première accélération automatique d'une frappe fait clignoter le sélecteur : on voit qu'on peut le régler
+let speedHinted = false;
+function hintSpeed() {
+  if (speedHinted) return;
+  speedHinted = true;
+  const g = $('#mb-speed-group');
+  g.classList.add('hint');
+  setTimeout(() => g.classList.remove('hint'), 4500);
+}
 $('#mb-reset').onclick = () => { sound.playClick(750); resetSim(); refresh(); };
 $('#timeline-scrub-slider').addEventListener('input', (e) => {
   if (!state.detonated) return;
@@ -746,6 +758,7 @@ renderer.setAnimationLoop(() => {
       // temps réel pendant le souffle, puis accéléré « documentaire » de plus en plus fort jusqu'à la dissipation
       const target = state.t < 30 ? 3 : state.t < 150 ? 8 : state.t < 1500 ? 30 : 120;
       state.autoFactor += (target - state.autoFactor) * Math.min(1, dt * 0.6);
+      if (state.autoFactor > 1.5) hintSpeed();
     }
     state.t = Math.min(simEnd(), state.t + dt * simSpeed());
   }
@@ -1038,6 +1051,8 @@ function hudTick(s, camDist) {
   $('#tel-cam-psi').textContent = state.arrived ? `${overpressureAt(e, camDist).toFixed(1)} psi` : 'pending';
   $('#tel-cam-dist').textContent = formatDistance(camDist);
   $('#mb-time').textContent = `T+${state.t < 100 ? state.t.toFixed(1) : Math.round(state.t)}s`;
+  const af = state.autoFactor;
+  $('#mb-auto-x').textContent = `×${af < 9.5 ? af.toFixed(af < 1.05 ? 0 : 1) : Math.round(af)}`;
   const sl = $('#timeline-scrub-slider');
   sl.setAttribute('aria-valuetext', `T plus ${state.t < 120 ? `${Math.round(state.t)} seconds` : `${Math.round(state.t / 60)} minutes`}`);
   if (document.activeElement !== sl) sl.value = String(state.t);

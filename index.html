@@ -280,7 +280,14 @@
     <span id="mb-time" class="mb-time" aria-hidden="true">T+0.0s</span>
     <label class="sr-only" for="timeline-scrub-slider">Timeline</label>
     <input type="range" id="timeline-scrub-slider" min="0" max="1800" step="0.05" value="0" aria-valuetext="T plus 0 seconds" />
-    <button id="mb-speed" class="mb-btn mb-speed" title="Playback speed" aria-label="Playback speed: auto">AUTO</button>
+    <div class="mb-speed-group" id="mb-speed-group" role="group" aria-label="Playback speed">
+      <span class="mb-speed-label" aria-hidden="true">⏩ SPEED</span>
+      <button class="mb-btn mb-sp active" data-speed="auto" aria-pressed="true" title="Automatic: real time during the blast, then faster">AUTO <b id="mb-auto-x">×1</b></button>
+      <button class="mb-btn mb-sp" data-speed="0.25" aria-pressed="false" aria-label="¼× slow motion">¼×</button>
+      <button class="mb-btn mb-sp" data-speed="1" aria-pressed="false" aria-label="1× real time">1×</button>
+      <button class="mb-btn mb-sp" data-speed="10" aria-pressed="false" aria-label="10× faster">10×</button>
+      <button class="mb-btn mb-sp" data-speed="60" aria-pressed="false" aria-label="60× faster">60×</button>
+    </div>
     <button id="mb-reset" class="mb-btn mb-reset" title="New strike" aria-label="Reset and prepare a new strike">↺</button>
   </div>
 
@@ -304,6 +311,8 @@
       <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
       source
     </a>
+    <span class="meta-sep">·</span>
+    <a class="meta-link-btn" href="mailto:seignier.dev@gmail.com" title="Contact">✉ seignier.dev@gmail.com</a>
     <span class="meta-sep">·</span>
     <span id="build-tag" class="build-tag"></span>
   </nav>
