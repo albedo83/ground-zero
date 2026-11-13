@@ -207,6 +207,15 @@
         <div>EST. DEATHS: <span id="global-deaths-count">0</span></div>
         <div>EST. INJURED: <span id="global-injured-count">0</span></div>
       </div>
+      <details class="world-stats hidden" id="world-stats">
+        <summary>WORLD STATS</summary>
+        <p class="ws-title">Most used weapons</p>
+        <ol class="ws-list" id="ws-weapons"></ol>
+        <p class="ws-title">Most hit cities</p>
+        <ol class="ws-list" id="ws-cities"></ol>
+        <p class="ws-title">Latest strikes</p>
+        <ul class="ws-list" id="ws-recent"></ul>
+      </details>
     </section>
 
     <section class="damage-card">
@@ -254,7 +263,8 @@
   </aside>
 
   <footer class="hud-bottom-dock">
-    <div class="preset-grid" id="preset-buttons-container"></div>
+    <div class="preset-grid" id="preset-buttons-container" role="group" aria-label="Weapon"></div>
+    <div id="weapon-menu" class="weapon-menu hidden" role="group" aria-label="Other weapons and tests"></div>
     <div class="dock-controls-row">
       <div class="yield-slider-group">
         <div class="yield-label-row">
@@ -288,7 +298,7 @@
       <button class="mb-btn mb-sp" data-speed="10" aria-pressed="false" aria-label="10× faster">10×</button>
       <button class="mb-btn mb-sp" data-speed="60" aria-pressed="false" aria-label="60× faster">60×</button>
     </div>
-    <button id="mb-reset" class="mb-btn mb-reset" title="New strike" aria-label="Reset and prepare a new strike">↺</button>
+    <button id="mb-reset" class="mb-btn mb-reset" title="Clear this strike and pick a new target on the globe"><span aria-hidden="true">↺</span> NEW TARGET</button>
   </div>
 
   <div class="hud-geo" id="hud-geo" aria-hidden="true">—</div>

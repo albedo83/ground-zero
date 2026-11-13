@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """Compteur mondial GROUND//ZERO — petit service HTTP sans dépendance (bibliothèque standard).
 
-  GET  /stats   → {"strikes", "deaths", "injured", "updated"}
-  POST /strike  ← {"yieldKt", "lat", "lon", "burst"}  → mêmes totaux, mis à jour
+  GET  /stats   → {"strikes", "deaths", "injured", "updated", "topWeapons", "topCities", "recent"}
+  POST /strike  ← {"yieldKt", "lat", "lon", "burst", "weapon"}  → mêmes données, mises à jour
+
+Chaque frappe est aussi ajoutée au journal strikes.jsonl (date, lieu arrondi à ~1 km, ville la plus
+proche, arme, puissance, type d'explosion ; jamais l'adresse IP). L'arme doit figurer dans
+weapons.json et la ville est déduite des coordonnées par le serveur : aucun texte libre du
+navigateur n'est enregistré ni affiché.
 
 Le navigateur n'envoie jamais de nombre de victimes : le serveur les recalcule à partir de la
 puissance et de la position, avec les mêmes formules que la page (src/nuke/physics.js), ce qui
@@ -22,7 +27,13 @@ HOST = os.environ.get("GZ_HOST", "127.0.0.1")
 PORT = int(os.environ.get("GZ_PORT", "8787"))
 STATE_DIR = Path(os.environ.get("STATE_DIRECTORY", os.environ.get("GZ_STATE_DIR", "./state")))
 STATE_FILE = STATE_DIR / "stats.json"
+LOG_FILE = STATE_DIR / "strikes.jsonl"
+LOG_MAX_BYTES = 20 * 1024 * 1024  # au-delà, le journal passe en strikes.jsonl.1 (une seule archive)
 CITIES = json.loads((Path(__file__).with_name("cities.json")).read_text(encoding="utf-8"))
+WEAPONS = set(json.loads((Path(__file__).with_name("weapons.json")).read_text(encoding="utf-8")))
+CITY_RADIUS_KM = 60       # au-delà, la frappe n'est rattachée à aucune ville
+TOP_N = 5
+RECENT_N = 6
 
 MIN_INTERVAL_S = 4.0      # une frappe toutes les 4 s au plus par adresse
 MAX_PER_HOUR = 40         # et 40 par heure
@@ -109,9 +120,35 @@ recent = {}  # ip -> [horodatages des frappes de la dernière heure]
 def load_state():
     try:
         s = json.loads(STATE_FILE.read_text())
-        return {k: int(s.get(k, 0)) for k in ("strikes", "deaths", "injured")}
     except (FileNotFoundError, ValueError):
-        return {"strikes": 0, "deaths": 0, "injured": 0}
+        s = {}
+    return {
+        **{k: int(s.get(k, 0)) for k in ("strikes", "deaths", "injured")},
+        "weapons": {k: int(v) for k, v in s.get("weapons", {}).items()},
+        "cities": {k: int(v) for k, v in s.get("cities", {}).items()},
+        "recent": list(s.get("recent", []))[-RECENT_N:],
+    }
+
+
+def nearest_city(lat, lon):
+    best, best_d = None, CITY_RADIUS_KM
+    for c in CITIES:
+        d_lat = (lat - c["lat"]) * 111.32
+        d_lon = (lon - c["lon"]) * 111.32 * math.cos(lat * math.pi / 180)
+        d = math.hypot(d_lat, d_lon)
+        if d < best_d:
+            best, best_d = c["name"], d
+    return best
+
+
+def log_strike(entry):
+    try:
+        if LOG_FILE.exists() and LOG_FILE.stat().st_size > LOG_MAX_BYTES:
+            os.replace(LOG_FILE, LOG_FILE.with_suffix(".jsonl.1"))
+        with LOG_FILE.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+    except OSError:
+        pass  # le journal est un bonus : une erreur disque ne doit pas bloquer le compteur
 
 
 def save_state(s):
@@ -124,8 +161,17 @@ def save_state(s):
 state = load_state()
 
 
+def top(counts):
+    return sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[:TOP_N]
+
+
 def snapshot():
-    return {**state, "updated": int(time.time())}
+    return {
+        "strikes": state["strikes"], "deaths": state["deaths"], "injured": state["injured"],
+        "updated": int(time.time()),
+        "topWeapons": top(state["weapons"]), "topCities": top(state["cities"]),
+        "recent": state["recent"][::-1],
+    }
 
 
 def allow(ip):
@@ -190,6 +236,9 @@ class Handler(BaseHTTPRequestHandler):
             lat = float(req["lat"])
             lon = float(req["lon"])
             burst = req.get("burst", "airburst")
+            weapon = req.get("weapon", "custom")
+            if not isinstance(weapon, str) or weapon not in WEAPONS:
+                weapon = "custom"
             if not (0.001 <= y <= 100000 and -90 <= lat <= 90 and -180 <= lon <= 180):
                 raise ValueError("plage")
             if burst not in ("airburst", "surface") or not all(map(math.isfinite, (y, lat, lon))):
@@ -203,7 +252,15 @@ class Handler(BaseHTTPRequestHandler):
             state["strikes"] += 1
             state["deaths"] += deaths
             state["injured"] += injured
+            city = nearest_city(lat, lon)
+            state["weapons"][weapon] = state["weapons"].get(weapon, 0) + 1
+            if city:
+                state["cities"][city] = state["cities"].get(city, 0) + 1
+            entry = {"t": int(time.time()), "lat": round(lat, 2), "lon": round(lon, 2), "city": city,
+                     "weapon": weapon, "yieldKt": round(y, 3), "burst": burst}
+            state["recent"] = (state["recent"] + [entry])[-RECENT_N:]
             save_state(state)
+            log_strike({**entry, "deaths": deaths, "injured": injured})
             return self.send_json(200, {**snapshot(), "strike": {"deaths": deaths, "injured": injured}})
 
 

@@ -12,6 +12,9 @@ npm run dev        # http://127.0.0.1:5180
 npm run build      # site statique dans dist/
 ```
 
+Armes : 11 cartes (de la Davy Crockett, 20 t, à la Tsar Bomba, 50 Mt, dont les arsenaux actuels) et une carte
+*OTHERS* qui liste 34 autres armes et essais par pays ; puissances estimées marquées ≈.
+
 Raccourcis : `Espace` détoner · `1-4` vues (globe, cinéma, tactique, témoin) · `R` réinitialiser · clic sur le sol = nouvelle cible.
 
 ## L'explosion
@@ -88,7 +91,11 @@ OpenFreeMap / OpenMapTiles © contributeurs OpenStreetMap (ODbL).
 
 Petit service Python sans dépendance (`server/counter.py`) qui totalise les frappes de tous les visiteurs.
 
-- `GET /stats` → `{ strikes, deaths, injured }` ; `POST /strike` ← `{ yieldKt, lat, lon, burst }`.
+- `GET /stats` → `{ strikes, deaths, injured, topWeapons, topCities, recent }` ; `POST /strike` ← `{ yieldKt, lat, lon, burst, weapon }`.
+- Chaque frappe est journalisée dans `strikes.jsonl` (date, lieu arrondi à ~1 km, ville la plus proche, arme, puissance,
+  type d'explosion ; jamais l'adresse IP). L'arme doit figurer dans `server/weapons.json` et la ville est déduite des
+  coordonnées par le serveur : aucun texte libre du navigateur n'est enregistré ni affiché.
+- La page affiche ces statistiques (« WORLD STATS » sous le compteur) : armes et villes les plus frappées, dernières frappes.
 - Le serveur **recalcule lui-même les victimes** (portage exact de `src/nuke/physics.js`, table `server/cities.json`) :
   le navigateur n'envoie jamais de chiffres, impossible de les gonfler.
 - Anti-spam : 1 frappe / 4 s et 40 / heure par adresse IP ; corps limité à 1 Ko ; valeurs validées.
@@ -98,7 +105,7 @@ Petit service Python sans dépendance (`server/counter.py`) qui totalise les fra
 Installation (sur le serveur) :
 
 ```bash
-sudo install -d /opt/ground-zero-counter && sudo install -m 644 server/counter.py server/cities.json /opt/ground-zero-counter/
+sudo install -d /opt/ground-zero-counter && sudo install -m 644 server/counter.py server/cities.json server/weapons.json /opt/ground-zero-counter/
 sudo install -m 644 server/gz-counter.service /etc/systemd/system/ && sudo systemctl enable --now gz-counter
 ```
 
@@ -111,7 +118,7 @@ handle_path /ground-zero/api/* {
 ```
 
 Si l'API est injoignable (développement local, panne), la page retombe sur le compteur local du navigateur.
-`server/cities.json` se régénère depuis `src/nuke/physics.js` si la liste de villes change.
+`server/cities.json` et `server/weapons.json` se régénèrent depuis `src/nuke/physics.js` si les villes ou les armes changent.
 
 ## Sécurité
 

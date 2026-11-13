@@ -12,96 +12,61 @@
 
 export const HISTORICAL_DETONATIONS_BASE = 2058; // 1945 Trinity -> 2017 North Korea test
 
+// Armes proposées en cartes : toute l'échelle de puissance, repères historiques et arsenaux actuels.
+// « est. » : puissance estimée (sources publiques), pas un chiffre officiel.
 export const WEAPON_PRESETS = [
-  {
-    id: 'davy-crockett',
-    name: 'DAVY CROCKETT',
-    subtitle: '20 t · 1961',
-    yieldKt: 0.02,
-    year: 1961,
-    origin: 'USA',
-    type: 'M-388 Recoilless Rifle Fission Warhead',
-    defaultBurst: 'airburst',
-    description: 'Smallest tactical nuclear weapon ever deployed by the US Army. Prompt lethal ionizing radiation radius exceeds its 5 psi blast radius.'
-  },
-  {
-    id: 'little-boy',
-    name: 'LITTLE BOY',
-    subtitle: '15 kt · 1945',
-    yieldKt: 15,
-    year: 1945,
-    origin: 'USA',
-    type: 'Gun-Type Enriched Uranium-235',
-    defaultBurst: 'airburst',
-    description: 'Detonated at 580 m altitude over Hiroshima on August 6, 1945. Leveled 13 km² of urban center.'
-  },
-  {
-    id: 'fat-man',
-    name: 'FAT MAN',
-    subtitle: '21 kt · 1945',
-    yieldKt: 21,
-    year: 1945,
-    origin: 'USA',
-    type: 'Implosion-Type Plutonium-239',
-    defaultBurst: 'airburst',
-    description: 'Detonated at 503 m altitude over Nagasaki on August 9, 1945. Higher efficiency implosion design.'
-  },
-  {
-    id: 'w76',
-    name: 'W76 — TRIDENT II',
-    subtitle: '100 kt · 1978',
-    yieldKt: 100,
-    year: 1978,
-    origin: 'USA / UK',
-    type: 'Thermonuclear MIRV Re-entry Vehicle',
-    defaultBurst: 'airburst',
-    description: 'Standard Submarine-Launched Ballistic Missile (SLBM) warhead forming the backbone of modern naval deterrence.'
-  },
-  {
-    id: 'tn81',
-    name: 'TN 81',
-    subtitle: '300 kt · 1988',
-    yieldKt: 300,
-    year: 1988,
-    origin: 'France',
-    type: 'ASMP Thermonuclear Warhead',
-    defaultBurst: 'airburst',
-    description: 'French air-sol moyenne portée strategic thermonuclear warhead (300 kt yield).'
-  },
-  {
-    id: 'b83',
-    name: 'B83',
-    subtitle: '1.2 Mt · 1983',
-    yieldKt: 1200,
-    year: 1983,
-    origin: 'USA',
-    type: 'Variable-Yield Strategic Gravity Bomb',
-    defaultBurst: 'airburst',
-    description: 'Highest-yield strategic weapon currently in the United States active stockpile (1.2 Megatons).'
-  },
-  {
-    id: 'castle-bravo',
-    name: 'CASTLE BRAVO',
-    subtitle: '15 Mt · 1954',
-    yieldKt: 15000,
-    year: 1954,
-    origin: 'USA',
-    type: 'Lithium-Deuteride Dry Thermonuclear Device',
-    defaultBurst: 'surface',
-    description: 'Detonated at Bikini Atoll. Runaway Lithium-7 fusion reaction produced 2.5x the predicted yield (15 Megatons).'
-  },
-  {
-    id: 'tsar-bomba',
-    name: 'TSAR BOMBA',
-    subtitle: '50 Mt · 1961',
-    yieldKt: 50000,
-    year: 1961,
-    origin: 'USSR',
-    type: 'RDS-220 Three-Stage Thermonuclear Bomb',
-    defaultBurst: 'airburst',
-    description: 'Most powerful human-made explosion in history. Shockwave circled Earth 3 times; mushroom cloud reached 64 km into the mesosphere.'
-  }
+  { id: 'davy-crockett', name: 'DAVY CROCKETT', subtitle: '20 t · 1961', yieldKt: 0.02, defaultBurst: 'airburst', note: 'W54 warhead — smallest nuclear weapon ever deployed (USA)' },
+  { id: 'little-boy', name: 'LITTLE BOY', subtitle: '15 kt · 1945', yieldKt: 15, defaultBurst: 'airburst', note: 'Hiroshima, 6 August 1945 — burst at about 580 m' },
+  { id: 'b61-12', name: 'B61-12', subtitle: '50 kt max · 2022', yieldKt: 50, defaultBurst: 'airburst', note: 'US guided bomb deployed in Europe for NATO — variable yield, up to ~50 kt' },
+  { id: 'w76-1', name: 'W76-1', subtitle: '≈90 kt · 2008', yieldKt: 90, defaultBurst: 'airburst', note: 'Most numerous warhead in the world, on US and UK Trident II missiles (est.)' },
+  { id: 'rs24-yars', name: 'RS-24 YARS', subtitle: '≈100 kt · 2010', yieldKt: 100, defaultBurst: 'airburst', note: 'Russian road-mobile ICBM, up to four warheads per missile (est.)' },
+  { id: 'dprk-2017', name: 'PUNGGYE-RI 2017', subtitle: '≈250 kt · 2017', yieldKt: 250, defaultBurst: 'airburst', note: 'North Korea\'s 6th and most recent test, underground (est.) — shown here as an airburst' },
+  { id: 'tna', name: 'TNA (ASMP-A)', subtitle: '≈300 kt · 2009', yieldKt: 300, defaultBurst: 'airburst', note: 'Current French air-launched warhead, carried by Rafale (up to ~300 kt)' },
+  { id: 'r36m2', name: 'R-36M2 (SS-18)', subtitle: '≈800 kt · 1988', yieldKt: 800, defaultBurst: 'airburst', note: 'Warhead of Russia\'s heaviest ICBM, each missile carrying ten (est.)' },
+  { id: 'b83', name: 'B83', subtitle: '1.2 Mt · 1983', yieldKt: 1200, defaultBurst: 'airburst', note: 'Highest-yield US bomb still in the stockpile, being retired in favour of the B61-13' },
+  { id: 'castle-bravo', name: 'CASTLE BRAVO', subtitle: '15 Mt · 1954', yieldKt: 15000, defaultBurst: 'surface', note: 'Bikini Atoll surface test — 2.5× the expected yield, catastrophic fallout' },
+  { id: 'tsar-bomba', name: 'TSAR BOMBA', subtitle: '50 Mt · 1961', yieldKt: 50000, defaultBurst: 'airburst', note: 'Most powerful explosion ever made (USSR) — cloud rose to about 65 km' },
 ];
+
+// Autres armes et essais connus, regroupés par pays (liste « OTHERS »)
+export const OTHER_WEAPONS = [
+  { country: 'United States', id: 'trinity', name: 'TRINITY', subtitle: '25 kt · 1945', yieldKt: 25, defaultBurst: 'surface', note: 'First nuclear test, New Mexico (2021 re-estimate)' },
+  { country: 'United States', id: 'fat-man', name: 'FAT MAN', subtitle: '21 kt · 1945', yieldKt: 21, defaultBurst: 'airburst', note: 'Nagasaki, 9 August 1945 — burst at about 500 m' },
+  { country: 'United States', id: 'crossroads-baker', name: 'CROSSROADS BAKER', subtitle: '23 kt · 1946', yieldKt: 23, defaultBurst: 'surface', note: 'Underwater test at Bikini Atoll' },
+  { country: 'United States', id: 'ivy-mike', name: 'IVY MIKE', subtitle: '10.4 Mt · 1952', yieldKt: 10400, defaultBurst: 'surface', note: 'First thermonuclear explosion, Enewetak Atoll' },
+  { country: 'United States', id: 'grable', name: 'GRABLE', subtitle: '15 kt · 1953', yieldKt: 15, defaultBurst: 'airburst', note: 'Shell fired from the M65 atomic cannon' },
+  { country: 'United States', id: 'mk17', name: 'MK-17', subtitle: '≈15 Mt · 1954', yieldKt: 15000, defaultBurst: 'airburst', note: 'First deployed US hydrogen bomb, 21 tonnes (est.)' },
+  { country: 'United States', id: 'b41', name: 'B41', subtitle: '25 Mt · 1960', yieldKt: 25000, defaultBurst: 'airburst', note: 'Highest-yield weapon ever deployed by the US' },
+  { country: 'United States', id: 'b53', name: 'B53 / W53', subtitle: '9 Mt · 1962', yieldKt: 9000, defaultBurst: 'airburst', note: 'Titan II warhead and bunker-busting bomb, retired 2011' },
+  { country: 'United States', id: 'sadm', name: 'SADM (W54)', subtitle: '1 kt max · 1964', yieldKt: 1, defaultBurst: 'surface', note: 'Backpack demolition munition' },
+  { country: 'United States', id: 'w87', name: 'W87', subtitle: '300 kt · 1986', yieldKt: 300, defaultBurst: 'airburst', note: 'Minuteman III ICBM warhead' },
+  { country: 'United States', id: 'w88', name: 'W88', subtitle: '475 kt · 1988', yieldKt: 475, defaultBurst: 'airburst', note: 'Most powerful Trident II warhead' },
+  { country: 'United States', id: 'w76-2', name: 'W76-2', subtitle: '≈6 kt · 2019', yieldKt: 6, defaultBurst: 'airburst', note: 'Low-yield Trident II warhead (est.)' },
+  { country: 'United States', id: 'b61-13', name: 'B61-13', subtitle: '≈360 kt · 2025', yieldKt: 360, defaultBurst: 'airburst', note: 'New gravity bomb replacing the B83 (est.)' },
+  { country: 'USSR / Russia', id: 'rds-1', name: 'RDS-1', subtitle: '22 kt · 1949', yieldKt: 22, defaultBurst: 'surface', note: 'First Soviet test, Semipalatinsk' },
+  { country: 'USSR / Russia', id: 'rds-6s', name: 'RDS-6s', subtitle: '400 kt · 1953', yieldKt: 400, defaultBurst: 'surface', note: 'First Soviet thermonuclear-boosted design ("Sloika")' },
+  { country: 'USSR / Russia', id: 'rds-37', name: 'RDS-37', subtitle: '1.6 Mt · 1955', yieldKt: 1600, defaultBurst: 'airburst', note: 'First Soviet two-stage hydrogen bomb' },
+  { country: 'USSR / Russia', id: 'r36', name: 'R-36 (SS-9)', subtitle: '≈20 Mt · 1966', yieldKt: 20000, defaultBurst: 'airburst', note: 'Single heavy ICBM warhead (est.)' },
+  { country: 'United Kingdom', id: 'hurricane', name: 'HURRICANE', subtitle: '25 kt · 1952', yieldKt: 25, defaultBurst: 'surface', note: 'First British test, in a ship off Australia' },
+  { country: 'United Kingdom', id: 'grapple-x', name: 'GRAPPLE X', subtitle: '1.8 Mt · 1957', yieldKt: 1800, defaultBurst: 'airburst', note: 'First full-scale British hydrogen bomb, Christmas Island' },
+  { country: 'United Kingdom', id: 'yellow-sun', name: 'YELLOW SUN MK 2', subtitle: '1.1 Mt · 1961', yieldKt: 1100, defaultBurst: 'airburst', note: 'V-bomber thermonuclear bomb' },
+  { country: 'United Kingdom', id: 'we177b', name: 'WE.177B', subtitle: '450 kt · 1966', yieldKt: 450, defaultBurst: 'airburst', note: 'Last British free-fall bomb, retired 1998' },
+  { country: 'France', id: 'gerboise-bleue', name: 'GERBOISE BLEUE', subtitle: '70 kt · 1960', yieldKt: 70, defaultBurst: 'surface', note: 'First French test, Reggane (Algeria)' },
+  { country: 'France', id: 'an11', name: 'AN-11', subtitle: '60 kt · 1964', yieldKt: 60, defaultBurst: 'airburst', note: 'First French operational bomb, carried by Mirage IV' },
+  { country: 'France', id: 'canopus', name: 'CANOPUS', subtitle: '2.6 Mt · 1968', yieldKt: 2600, defaultBurst: 'airburst', note: 'First French hydrogen bomb, Fangataufa' },
+  { country: 'France', id: 'tn81', name: 'TN 81', subtitle: '300 kt · 1988', yieldKt: 300, defaultBurst: 'airburst', note: 'ASMP missile warhead, retired 2010' },
+  { country: 'France', id: 'tn90', name: 'TN 90 (HADÈS)', subtitle: '80 kt · 1991', yieldKt: 80, defaultBurst: 'airburst', note: 'Short-range missile warhead, retired 1997' },
+  { country: 'France', id: 'tno', name: 'TNO', subtitle: '≈100 kt · 2016', yieldKt: 100, defaultBurst: 'airburst', note: 'M51 submarine missile warhead (est.)' },
+  { country: 'China', id: 'cn-596', name: '596', subtitle: '22 kt · 1964', yieldKt: 22, defaultBurst: 'surface', note: 'First Chinese test, Lop Nur' },
+  { country: 'China', id: 'cn-test6', name: 'TEST NO. 6', subtitle: '3.3 Mt · 1967', yieldKt: 3300, defaultBurst: 'airburst', note: 'First Chinese hydrogen bomb' },
+  { country: 'China', id: 'df5', name: 'DF-5', subtitle: '≈4 Mt · 1981', yieldKt: 4000, defaultBurst: 'airburst', note: 'Single heavy ICBM warhead (est.)' },
+  { country: 'India', id: 'smiling-buddha', name: 'SMILING BUDDHA', subtitle: '≈8 kt · 1974', yieldKt: 8, defaultBurst: 'airburst', note: 'First Indian test, underground (est.)' },
+  { country: 'India', id: 'shakti-1', name: 'SHAKTI I', subtitle: '45 kt claimed · 1998', yieldKt: 45, defaultBurst: 'airburst', note: 'Thermonuclear test, underground — outside estimates are lower' },
+  { country: 'Pakistan', id: 'chagai-1', name: 'CHAGAI-I', subtitle: '40 kt claimed · 1998', yieldKt: 40, defaultBurst: 'airburst', note: 'First Pakistani tests, underground — outside estimates are lower' },
+  { country: 'North Korea', id: 'dprk-2006', name: 'PUNGGYE-RI 2006', subtitle: '≈0.7 kt · 2006', yieldKt: 0.7, defaultBurst: 'airburst', note: 'First North Korean test, underground (est.)' },
+];
+
+export const ALL_WEAPONS = [...WEAPON_PRESETS, ...OTHER_WEAPONS];
 
 export const TARGET_CITIES = [
   { name: 'Paris, France', lat: 48.8566, lon: 2.3522, density: 20500, tier: 'metropolis' },

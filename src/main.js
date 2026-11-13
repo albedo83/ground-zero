@@ -10,7 +10,7 @@ import { EarthControls } from './controls.js';
 import { A, B, geodeticToEcef, ecefToGeodetic } from './geo.js';
 import { IMAGERY, TERRAIN, VECTOR } from './config.js';
 import {
-  HISTORICAL_DETONATIONS_BASE, WEAPON_PRESETS, TARGET_CITIES, formatDistance, calculateNuclearEffects, overpressureAt,
+  HISTORICAL_DETONATIONS_BASE, WEAPON_PRESETS, OTHER_WEAPONS, ALL_WEAPONS, TARGET_CITIES, formatDistance, calculateNuclearEffects, overpressureAt,
 } from './nuke/physics.js';
 import { NuclearSoundEngine } from './nuke/sound.js';
 import { Explosion } from './nuke/explosion.js';
@@ -201,6 +201,37 @@ function renderCounter() {
 
 function acceptStats(d) {
   if (d && Number.isFinite(d.strikes)) { state.global = { strikes: d.strikes, deaths: d.deaths, injured: d.injured }; renderCounter(); }
+  if (d && Array.isArray(d.recent)) renderWorldStats(d);
+}
+
+// statistiques de tous les visiteurs : armes et villes les plus frappées, dernières frappes
+const fmtYield = (kt) => (kt < 1 ? `${Math.round(kt * 1000)} t` : kt < 1000 ? `${+kt.toPrecision(3)} kt` : `${+(kt / 1000).toPrecision(3)} Mt`);
+const weaponName = (id) => ALL_WEAPONS.find((w) => w.id === id)?.name ?? 'CUSTOM';
+function timeAgo(t) {
+  const s = Math.max(0, Date.now() / 1000 - t);
+  return s < 60 ? 'just now' : s < 3600 ? `${Math.floor(s / 60)} min ago` : s < 86400 ? `${Math.floor(s / 3600)} h ago` : `${Math.floor(s / 86400)} d ago`;
+}
+function fillList(el, rows) {
+  el.replaceChildren(...rows.map(([label, value]) => {
+    const li = document.createElement('li');
+    const a = document.createElement('span');
+    a.textContent = label;
+    const b = document.createElement('span');
+    b.className = 'ws-val';
+    b.textContent = value;
+    li.append(a, b);
+    return li;
+  }));
+}
+function renderWorldStats(d) {
+  const box = $('#world-stats');
+  box.classList.toggle('hidden', !d.recent.length);
+  fillList($('#ws-weapons'), (d.topWeapons || []).map(([id, n]) => [weaponName(id), fmt(n)]));
+  fillList($('#ws-cities'), (d.topCities || []).map(([city, n]) => [city.split(',')[0], fmt(n)]));
+  fillList($('#ws-recent'), d.recent.map((r) => [
+    `${r.weapon === 'custom' ? fmtYield(r.yieldKt) : weaponName(r.weapon)} → ${r.city ? r.city.split(',')[0] : fmtCoords(r.lat, r.lon)}`,
+    timeAgo(r.t),
+  ]));
 }
 
 async function fetchStats() {
@@ -210,13 +241,13 @@ async function fetchStats() {
   } catch { /* hors ligne : compteur local */ }
 }
 
-// le serveur recalcule lui-même les victimes : on n'envoie que la puissance, la position et le type d'explosion
+// le serveur recalcule lui-même les victimes : on n'envoie que la puissance, la position, le type d'explosion et l'arme
 async function postStrike(e) {
   try {
     const r = await fetch(`${API}strike`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ yieldKt: state.yieldKt, lat: state.lat, lon: state.lon, burst: state.burst }),
+      body: JSON.stringify({ yieldKt: state.yieldKt, lat: state.lat, lon: state.lon, burst: state.burst, weapon: state.presetId || 'custom' }),
     });
     if (r.ok || r.status === 429) acceptStats(await r.json());
   } catch {
@@ -241,7 +272,7 @@ const fmtCoords = (lat, lon) => `${Math.abs(lat).toFixed(2)}°${lat >= 0 ? 'N' :
 
 function refresh() {
   const e = state.effects = calculateNuclearEffects(state.yieldKt, state.lat, state.lon, state.burst);
-  const preset = WEAPON_PRESETS.find((p) => p.id === state.presetId);
+  const preset = ALL_WEAPONS.find((p) => p.id === state.presetId);
   $('#report-weapon-title').textContent = `${preset ? preset.name : 'CUSTOM WARHEAD'} — ${e.yieldFormatted}`;
   const loc = state.targetName || e.casualties.cityName;
   const coords = fmtCoords(state.lat, state.lon);
@@ -272,33 +303,106 @@ function refresh() {
   return e;
 }
 
+function selectWeapon(p) {
+  sound.playClick(1100);
+  state.presetId = p.id;
+  state.yieldKt = p.yieldKt;
+  state.burst = p.defaultBurst;
+  document.querySelectorAll('.burst-btn').forEach((x) => x.classList.toggle('active', x.dataset.burst === state.burst));
+  markPresets();
+  if (state.detonated) resetSim();
+  refresh();
+  if (state.view !== 'globe') setView(state.view);
+}
+
+// carte active ; la carte OTHERS affiche l'arme choisie dans sa liste
+function markPresets() {
+  document.querySelectorAll('.preset-card:not(.preset-more)').forEach((x) => {
+    const on = x.dataset.id === state.presetId;
+    x.classList.toggle('active', on);
+    x.setAttribute('aria-pressed', String(on));
+  });
+  const other = OTHER_WEAPONS.find((w) => w.id === state.presetId);
+  const more = $('#preset-more');
+  more.classList.toggle('active', !!other);
+  more.querySelector('.preset-name').textContent = other ? `${other.name} ▾` : 'OTHERS ▾';
+  more.querySelector('.preset-sub').textContent = other ? other.subtitle : `${OTHER_WEAPONS.length} more weapons`;
+  document.querySelectorAll('.weapon-option').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.id === state.presetId)));
+}
+
+function presetCard(p) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'preset-card';
+  b.dataset.id = p.id;
+  b.title = p.note;
+  b.innerHTML = `<span class="preset-name">${p.name}</span><span class="preset-sub">${p.subtitle}</span>`;
+  b.onclick = () => selectWeapon(p);
+  return b;
+}
+
 function initPresets() {
   const box = $('#preset-buttons-container');
   box.innerHTML = '';
-  for (const p of WEAPON_PRESETS) {
-    const b = document.createElement('button');
-    b.className = `preset-card ${p.id === state.presetId ? 'active' : ''}`;
-    b.dataset.id = p.id;
-    b.innerHTML = `<div class="preset-name">${p.name}</div><div class="preset-sub">${p.subtitle}</div>`;
-    b.onclick = () => {
-      sound.playClick(1100);
-      state.presetId = p.id;
-      state.yieldKt = p.yieldKt;
-      state.burst = p.defaultBurst;
-      document.querySelectorAll('.burst-btn').forEach((x) => x.classList.toggle('active', x.dataset.burst === state.burst));
-      document.querySelectorAll('.preset-card').forEach((x) => x.classList.toggle('active', x.dataset.id === p.id));
-      if (state.detonated) resetSim();
-      refresh();
-      if (state.view !== 'globe') setView(state.view);
-    };
-    box.appendChild(b);
+  WEAPON_PRESETS.forEach((p) => box.appendChild(presetCard(p)));
+
+  // carte « OTHERS » : liste des autres armes et essais, par pays
+  const more = document.createElement('button');
+  more.type = 'button';
+  more.id = 'preset-more';
+  more.className = 'preset-card preset-more';
+  more.setAttribute('aria-haspopup', 'true');
+  more.setAttribute('aria-expanded', 'false');
+  more.setAttribute('aria-controls', 'weapon-menu');
+  more.innerHTML = '<span class="preset-name"></span><span class="preset-sub"></span>';
+  box.appendChild(more);
+
+  const menu = $('#weapon-menu');
+  menu.innerHTML = '';
+  for (const country of [...new Set(OTHER_WEAPONS.map((w) => w.country))]) {
+    const h = document.createElement('p');
+    h.className = 'weapon-group';
+    h.textContent = country;
+    menu.appendChild(h);
+    for (const w of OTHER_WEAPONS.filter((x) => x.country === country)) {
+      const o = document.createElement('button');
+      o.type = 'button';
+      o.className = 'weapon-option';
+      o.dataset.id = w.id;
+      o.innerHTML = `<span class="wo-name">${w.name}</span><span class="wo-sub">${w.subtitle}</span><span class="wo-note">${w.note}</span>`;
+      o.onclick = () => { closeWeaponMenu(true); selectWeapon(w); };
+      menu.appendChild(o);
+    }
   }
+  const open = () => {
+    menu.classList.remove('hidden');
+    more.setAttribute('aria-expanded', 'true');
+    (menu.querySelector('.weapon-option[aria-pressed="true"]') || menu.querySelector('.weapon-option')).focus();
+  };
+  more.onclick = () => { sound.playClick(1000); if (menu.classList.contains('hidden')) open(); else closeWeaponMenu(true); };
+  menu.addEventListener('keydown', (e) => {
+    const items = [...menu.querySelectorAll('.weapon-option')];
+    const i = items.indexOf(document.activeElement);
+    if (e.key === 'Escape') { e.preventDefault(); closeWeaponMenu(true); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); items[Math.min(items.length - 1, i + 1)].focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); items[Math.max(0, i - 1)].focus(); }
+  });
+  document.addEventListener('pointerdown', (e) => {
+    if (!menu.classList.contains('hidden') && !e.target.closest('#weapon-menu, #preset-more')) closeWeaponMenu(false);
+  });
+  markPresets();
+}
+
+function closeWeaponMenu(refocus) {
+  $('#weapon-menu').classList.add('hidden');
+  $('#preset-more').setAttribute('aria-expanded', 'false');
+  if (refocus) $('#preset-more').focus();
 }
 
 $('#yield-log-slider').addEventListener('input', (e) => {
   state.yieldKt = sliderToYield(e.target.value);
   state.presetId = null;
-  document.querySelectorAll('.preset-card').forEach((x) => x.classList.remove('active'));
+  markPresets();
   if (state.detonated) resetSim();
   refresh();
 });
@@ -317,6 +421,7 @@ document.querySelectorAll('.burst-btn').forEach((btn) => {
 
 function setTarget(lat, lon, name = null, { fly = true } = {}) {
   if (state.detonated) resetSim();
+  $('#shockwave-alert').classList.add('hidden');
   sound.playTargetLock();
   state.lat = lat; state.lon = lon; state.targetName = name;
   refresh();
@@ -598,7 +703,15 @@ function hintSpeed() {
   g.classList.add('hint');
   setTimeout(() => g.classList.remove('hint'), 4500);
 }
-$('#mb-reset').onclick = () => { sound.playClick(750); resetSim(); refresh(); };
+// nouvelle cible : on efface la frappe et on remonte sur le globe pour viser ailleurs
+$('#mb-reset').onclick = () => {
+  sound.playClick(750);
+  resetSim();
+  refresh();
+  setView('globe');
+  showAlert('PICK A NEW TARGET — CLICK THE GLOBE OR SEARCH A CITY', 5000);
+  announce('Strike cleared. Pick a new target: click the globe or search a city.');
+};
 $('#timeline-scrub-slider').addEventListener('input', (e) => {
   if (!state.detonated) return;
   setPaused(true);
@@ -1051,6 +1164,8 @@ function hudTick(s, camDist) {
   $('#tel-cam-psi').textContent = state.arrived ? `${overpressureAt(e, camDist).toFixed(1)} psi` : 'pending';
   $('#tel-cam-dist').textContent = formatDistance(camDist);
   $('#mb-time').textContent = `T+${state.t < 100 ? state.t.toFixed(1) : Math.round(state.t)}s`;
+  // simulation terminée : le bouton NEW TARGET s'illumine pour inviter à viser ailleurs
+  $('#mb-reset').classList.toggle('ended', state.t >= simEnd());
   const af = state.autoFactor;
   $('#mb-auto-x').textContent = `×${af < 9.5 ? af.toFixed(af < 1.05 ? 0 : 1) : Math.round(af)}`;
   const sl = $('#timeline-scrub-slider');
