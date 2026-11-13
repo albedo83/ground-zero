@@ -1309,3 +1309,22 @@ body.cinematic #fx-control-panel:focus-within { opacity: 1; }
   .tm-pulse { display: none; }
 }
 .meta-link-btn { min-height: 24px; padding: 4px 4px; display: inline-flex; align-items: center; }
+
+/* erreur graphique (pilote, WebGPU) : visible même si le globe reste noir */
+.gpu-error {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 60;
+  width: min(460px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto;
+  background: rgba(14, 8, 8, 0.96); border: 1px solid rgba(255, 65, 54, 0.7);
+  padding: 16px 18px; color: #f2d6d2; font-size: 12px; line-height: 1.5;
+  box-shadow: 0 0 40px rgba(255, 42, 56, 0.3);
+}
+.gpu-error p { margin: 0 0 8px; }
+.gpu-error-title { font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #ff8a80; }
+.gpu-error ul { margin: 0 0 12px; padding-left: 18px; font-size: 11px; color: #d7b5b0; word-break: break-word; }
+.gpu-error-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.gpu-error-actions button {
+  min-height: 32px; padding: 6px 14px; font: inherit; font-weight: 700; letter-spacing: 0.06em; cursor: pointer;
+  background: rgba(255, 107, 24, 0.18); border: 1px solid rgba(255, 107, 24, 0.7); color: #ffd2b0;
+}
+.gpu-error-actions button:last-child { background: transparent; border-color: rgba(255, 255, 255, 0.3); color: #ddd; }
+.gpu-error-actions button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }

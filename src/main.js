@@ -1,3 +1,4 @@
+import { preferredRenderer, switchRenderer, watchDevice, markStarted } from './gpuReport.js';
 import * as THREE from 'three/webgpu';
 import {
   positionView, normalize, cross, length, dot, clamp, pow, vec3, vec2, uniform, float, pass, screenUV, screenSize,
@@ -22,7 +23,8 @@ const d2r = THREE.MathUtils.degToRad, r2d = THREE.MathUtils.radToDeg;
 // ---------- Rendu ----------
 
 const canvas = $('#view');
-const renderer = new THREE.WebGPURenderer({ canvas, antialias: true, logarithmicDepthBuffer: true });
+// ?renderer=webgl (ou le choix du panneau Render pipeline) force WebGL 2 si WebGPU affiche un écran noir
+const renderer = new THREE.WebGPURenderer({ canvas, antialias: true, logarithmicDepthBuffer: true, forceWebGL: preferredRenderer() === 'webgl' });
 // écran tactile (téléphone, tablette) : résolution plafonnée pour garder la fluidité et la batterie
 const isTouch = window.matchMedia('(pointer: coarse)').matches;
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, isTouch ? 1.5 : 2));
@@ -32,6 +34,10 @@ renderer.toneMappingExposure = 1.0;
 renderer.setClearColor(0x000000, 0);
 await renderer.init();
 const backend = renderer.backend.isWebGPUBackend ? 'WebGPU' : 'WebGL2';
+if (renderer.backend.isWebGPUBackend) watchDevice(renderer.backend.device);
+$('#fx-backend').textContent = `${backend === 'WebGPU' ? 'WEBGPU' : 'WEBGL 2'} · HDR`;
+$('#fx-renderer').value = backend === 'WebGPU' ? 'webgpu' : 'webgl';
+$('#fx-renderer').onchange = (e) => switchRenderer(e.target.value);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
@@ -1042,4 +1048,5 @@ refresh();
 lockTargetMarker();
 controls.flyTo({ lat: state.lat, lon: state.lon, range: A * 2.4, heading: 0, pitch: 0, duration: 0.01 });
 
+markStarted();
 window.__gz = { controls, globe, camera, renderer, explosion, state, detonate, setView, setTarget, quality, applyQuality };

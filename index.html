@@ -88,6 +88,16 @@
     <div class="tm-label"><b id="tm-name">PARIS</b><span id="tm-yield">15 kt</span></div>
   </div>
 
+  <div id="gpu-error" class="gpu-error hidden" role="alert">
+    <p class="gpu-error-title">Graphics error<span id="gpu-error-count"></span></p>
+    <p>The 3D view may stay black with this graphics driver.</p>
+    <ul id="gpu-error-list"></ul>
+    <div class="gpu-error-actions">
+      <button type="button" id="gpu-error-switch">Switch to WebGL 2</button>
+      <button type="button" id="gpu-error-close">Dismiss</button>
+    </div>
+  </div>
+
   <div id="shockwave-alert" class="hidden" aria-hidden="true">
     <span class="pulse-dot red"></span>
     <span id="shockwave-alert-text">—</span>
@@ -129,7 +139,7 @@
     <div id="fx-control-panel" class="fx-control-card">
       <div class="fx-header" id="fx-toggle-header">
         <span>▾ Render pipeline</span>
-        <span class="fx-badge">WEBGPU · HDR</span>
+        <span class="fx-badge" id="fx-backend">WEBGPU · HDR</span>
       </div>
       <div class="fx-body collapsed" id="fx-control-body">
         <div class="fx-row">
@@ -140,6 +150,13 @@
             <option value="high">High</option>
             <option value="medium">Medium</option>
             <option value="low">Low</option>
+          </select>
+        </div>
+        <div class="fx-row">
+          <label for="fx-renderer">Renderer</label>
+          <select id="fx-renderer" class="fx-select">
+            <option value="webgpu">WebGPU</option>
+            <option value="webgl">WebGL 2</option>
           </select>
         </div>
         <div class="fx-row">
