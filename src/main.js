@@ -292,7 +292,6 @@ function refresh() {
   $('#yield-slider-readout').textContent = e.yieldFormatted;
   $('#yield-log-slider').setAttribute('aria-valuetext', e.yieldFormatted.replace(' kt', ' kilotons').replace(' Mt', ' megatons').replace(' t', ' tons'));
   $('#yield-log-slider').value = String(yieldToSlider(state.yieldKt));
-  $('#yield-slider-fill').style.width = `${(yieldToSlider(state.yieldKt) / 10).toFixed(1)}%`;
   $('#target-status-title').textContent = loc ? `TARGET: ${loc.toUpperCase()}` : 'TARGET LOCKED';
   $('#target-status-sub').textContent = `${coords} · ${state.view === 'globe' ? 'click to dive' : 'click the ground to retarget'}`;
   renderCounter();

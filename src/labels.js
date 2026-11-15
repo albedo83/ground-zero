@@ -1,11 +1,12 @@
-// Noms des villes : tirés de la couche « place » des tuiles vectorielles (OpenFreeMap),
+// Noms des pays et des villes : tirés de la couche « place » des tuiles vectorielles (OpenFreeMap),
 // projetés à l'écran à chaque image, triés par importance (capitales, rang) et sans chevauchement.
 
 import * as THREE from 'three/webgpu';
 import { geodeticToEcef } from './geo.js';
 
 const d2r = THREE.MathUtils.degToRad;
-const LANG = (navigator.language || 'en').toLowerCase().startsWith('fr') ? 'fr' : 'en';
+// langue du navigateur (« de », « es », « ja »…) ; à défaut, nom anglais puis nom local
+const LANG = (navigator.language || 'en').toLowerCase().split('-')[0];
 
 export class CityLabels {
   constructor(globe, camera, root, { max = 45 } = {}) {
@@ -65,8 +66,8 @@ export class CityLabels {
         list.push(p);
       }
     }
-    // capitales d'abord, puis villes > bourgs > villages, puis rang
-    list.sort((a, b) => (b.capital === 2) - (a.capital === 2) || a.cls - b.cls || a.rank - b.rank);
+    // pays d'abord (discrets), puis capitales, villes > bourgs > villages, puis rang
+    list.sort((a, b) => (a.cls === -1 ? 0 : 1) - (b.cls === -1 ? 0 : 1) || (b.capital === 2) - (a.capital === 2) || a.cls - b.cls || a.rank - b.rank);
     for (const p of list.slice(0, 400)) {
       const h = this.globe.groundHeight(d2r(p.lat), d2r(p.lon)) + 40;
       p.ecef = geodeticToEcef(d2r(p.lat), d2r(p.lon), h);
@@ -100,7 +101,10 @@ export class CityLabels {
       const P = this.n.set(p.ecef[0], p.ecef[1], p.ecef[2]);
       // côté visible de la Terre uniquement
       const toCam = this.v.copy(camPos).sub(P);
-      if (toCam.dot(P) < 0) continue;
+      const facing = toCam.dot(P) / (toCam.length() * P.length());
+      if (facing < 0) continue;
+      // un nom de pays centré déborderait du disque près du bord du globe
+      if (p.cls === -1 && facing < 0.3) continue;
       const q = this.v.copy(P).sub(camPos).applyMatrix4(cam.matrixWorldInverse);
       if (q.z > 0) continue;
       const dist = -q.z;
@@ -111,16 +115,19 @@ export class CityLabels {
       if (dist < 600) continue;
       // caché derrière le champignon ?
       if (occluders.some((o) => dist > o.depth && ((x - o.x) / o.rx) ** 2 + ((y - o.y) / o.ry) ** 2 < 1)) continue;
-      const big = p.capital === 2 || (p.cls === 0 && p.rank <= 2);
-      const w = p.name.length * (big ? 7.4 : 6.4) + 16, h = big ? 16 : 14;
-      const box = [x - 4, y - h / 2, x + w, y + h / 2];
+      const country = p.cls === -1;
+      const big = !country && (p.capital === 2 || (p.cls === 0 && p.rank <= 2));
+      const w = country ? p.name.length * 8.2 : p.name.length * (big ? 7.4 : 6.4) + 16, h = big ? 16 : 14;
+      // un nom de pays est centré sur son point ; une ville part de son point
+      const x0 = country ? x - w / 2 : x;
+      const box = country ? [x0 - 4, y - h / 2, x0 + w + 4, y + h / 2] : [x - 4, y - h / 2, x + w, y + h / 2];
       if (box[2] > W - 2 || box[1] < 2 || box[3] > H - 2) continue; // nom entièrement visible uniquement
       if (placed.some((b) => box[0] < b[2] && box[2] > b[0] && box[1] < b[3] && box[3] > b[1])) continue;
       placed.push(box);
       const el = this.node(shown++);
       if (el._name !== p.name) { el.lastChild.textContent = p.name; el._name = p.name; }
-      el.className = `city-label${big ? ' big' : ''}${p.cls === 2 ? ' small' : ''}`;
-      el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+      el.className = `city-label${big ? ' big' : ''}${p.cls === 2 ? ' small' : ''}${country ? ' country' : ''}`;
+      el.style.transform = `translate3d(${x0.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
       el.style.display = '';
     }
     for (let i = shown; i < this.pool.length; i++) this.pool[i].style.display = 'none';

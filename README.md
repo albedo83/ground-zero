@@ -40,6 +40,8 @@ Raccourcis : `Espace` détoner · `1-4` vues (globe, cinéma, tactique, témoin)
 | Imagerie | Sentinel-2 cloudless 2024 (EOX, CC BY-NC-SA) ou Esri World Imagery (quota) |
 | Relief | AWS Terrain Tiles (Terrarium) |
 | Routes + bâtiments 3D | OpenFreeMap (OpenMapTiles / OSM) |
+| Frontières | Natural Earth 1:10m (domaine public, `public/borders.json`) ; limites OSM au zoom des routes |
+| Noms de pays et de villes | OpenFreeMap, dans la langue du navigateur (repli anglais puis nom local) |
 | Recherche | Photon (komoot) |
 
 ## Fichiers

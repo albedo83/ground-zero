@@ -186,14 +186,91 @@ function drawRoads(ctx, size, vec, z, x, y, metersPerPx) {
   for (const p of paths) { ctx.strokeStyle = p.style.color; ctx.lineWidth = p.width; ctx.stroke(p.path); }
 }
 
+// ---------- Frontières des pays ----------
+// Sous le zoom des routes : fichier Natural Earth 1:10m (public/borders.json), chargé une fois par worker,
+// sans attendre de tuile vectorielle. Au zoom des routes : limites OSM de la tuile vectorielle déjà chargée.
+// Trait fin et transparent, pointillé pour les frontières contestées ; les limites en mer sont ignorées.
+
+let bordersPromise = null;
+function getBorders() {
+  bordersPromise ??= fetch(`${import.meta.env.BASE_URL}borders.json`)
+    .then((r) => r.json())
+    .then(({ scale, lines }) => lines.map((l) => {
+      // coordonnées en différences (1/scale degré) → Mercator [0,1] et boîte englobante
+      const m = new Float64Array(l.length - 1);
+      let lon = 0, lat = 0, x0 = 1, y0 = 1, x1 = 0, y1 = 0;
+      for (let i = 1; i < l.length; i += 2) {
+        lon += l[i]; lat += l[i + 1];
+        const x = (lon / scale + 180) / 360;
+        const s = Math.sin((lat / scale) * Math.PI / 180);
+        const y = 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI);
+        m[i - 1] = x; m[i] = y;
+        x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+      }
+      return { dashed: l[0] === 1, m, box: [x0, y0, x1, y1] };
+    }))
+    .catch(() => { bordersPromise = null; return []; });
+  return bordersPromise;
+}
+
+function strokeBorders(ctx, size, solid, dashed) {
+  const u = size / 256;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  // les tuiles sont affichées un peu réduites : 2 texels pour rester lisible, transparence pour rester discret
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+  ctx.lineWidth = 2 * u;
+  ctx.stroke(solid);
+  ctx.setLineDash([6 * u, 4 * u]);
+  ctx.stroke(dashed);
+  ctx.setLineDash([]);
+}
+
+function drawBorders(ctx, size, lines, z, x, y) {
+  const n = 2 ** z, pad = 2 / size / n;
+  const bx0 = x / n - pad, by0 = y / n - pad, bx1 = (x + 1) / n + pad, by1 = (y + 1) / n + pad;
+  const solid = new Path2D(), dashed = new Path2D();
+  for (const { dashed: d, m, box } of lines) {
+    if (box[2] < bx0 || box[0] > bx1 || box[3] < by0 || box[1] > by1) continue;
+    const path = d ? dashed : solid;
+    for (let i = 0; i < m.length; i += 2) {
+      const px = (m[i] * n - x) * size, py = (m[i + 1] * n - y) * size;
+      i ? path.lineTo(px, py) : path.moveTo(px, py);
+    }
+  }
+  strokeBorders(ctx, size, solid, dashed);
+}
+
+function drawOsmBorders(ctx, size, vec, z, x, y) {
+  const layer = vec.tile.layers.boundary;
+  if (!layer) return;
+  const k = 2 ** (z - vec.vz);
+  const ox = x - vec.vx * k, oy = y - vec.vy * k;
+  const solid = new Path2D(), dashed = new Path2D();
+  for (let i = 0; i < layer.length; i++) {
+    const f = layer.feature(i);
+    const p = f.properties;
+    if (f.type !== 2 || p.admin_level !== 2 || p.maritime === 1) continue;
+    const path = p.disputed === 1 ? dashed : solid;
+    for (const line of f.loadGeometry()) {
+      line.forEach((pt, j) => {
+        const px = (pt.x / f.extent * k - ox) * size, py = (pt.y / f.extent * k - oy) * size;
+        j ? path.lineTo(px, py) : path.moveTo(px, py);
+      });
+    }
+  }
+  strokeBorders(ctx, size, solid, dashed);
+}
+
 // ---------- Tuile de terrain ----------
 
 async function buildTile({ z, x, y, imagery }) {
   const withVector = z >= VECTOR.minOverlayZoom;
-  const [img, terr, vec] = await Promise.all([
+  const [img, terr, vec, borders] = await Promise.all([
     getImagery(imagery, z, x, y),
     getTerrain(z, x, y),
     withVector ? getVector(z, x, y) : null,
+    withVector ? null : getBorders(),
   ]);
 
   // Texture
@@ -213,6 +290,9 @@ async function buildTile({ z, x, y, imagery }) {
   if (vec) {
     const metersPerPx = (2 * Math.PI * A * Math.cos(latC)) / n / size;
     drawRoads(ctx, size, vec, z, x, y, metersPerPx);
+    drawOsmBorders(ctx, size, vec, z, x, y);
+  } else if (borders) {
+    drawBorders(ctx, size, borders, z, x, y);
   }
   const bitmap = canvas.transferToImageBitmap();
 
@@ -402,21 +482,21 @@ async function buildBuildings({ z, x, y }) {
 
 // ---------- Noms de lieux (couche « place ») ----------
 
-const PLACE_CLASSES = { city: 0, town: 1, village: 2 };
+const PLACE_CLASSES = { country: -1, city: 0, town: 1, village: 2 };
 
 async function buildPlaces({ z, x, y, lang }) {
   const vec = await getVector(z, x, y);
   const layer = vec?.tile.layers.place;
   const out = [];
   if (!layer) return { result: { places: out }, transfer: [] };
-  const key = lang === 'fr' ? 'name:fr' : 'name:en';
+  const key = `name:${lang}`;
   for (let i = 0; i < layer.length; i++) {
     const f = layer.feature(i);
     const p = f.properties;
     if (!(p.class in PLACE_CLASSES)) continue;
     const g = f.toGeoJSON(vec.vx, vec.vy, vec.vz).geometry;
     if (g.type !== 'Point') continue;
-    const name = p[key] || p['name:latin'] || p.name_int || p.name;
+    const name = p[key] || p['name:en'] || p.name_en || p['name:latin'] || p.name_int || p.name;
     if (!name) continue;
     out.push({
       name, cls: PLACE_CLASSES[p.class], rank: p.rank ?? 99, capital: p.capital ?? 0,
