@@ -3,7 +3,8 @@
 
 import * as THREE from 'three/webgpu';
 import {
-  texture, uv, uniform, normalWorld, positionWorld, normalize, dot, max, pow, smoothstep, vec3, float,
+  texture, uv, uniform, normalWorld, positionWorld, normalize, dot, max, pow, exp, clamp, smoothstep, vec3, float,
+  mx_fractal_noise_float,
 } from 'three/tsl';
 import { geodeticToEcef, mercYToLat, latToMercY, MAX_LAT, A, B } from './geo.js';
 import { IMAGERY, VECTOR, GRID } from './config.js';
@@ -153,11 +154,18 @@ export class Globe {
     const flatWater = water.mul(smoothstep(0.985, 0.998, dot(N, up)));
     const H = normalize(this.uSun.add(V));
     const nh = max(dot(N, H), 0.0);
-    // scintillement du soleil : un lobe serré et un halo large, teinte dorée (comme sur les photos orbitales)
-    const glint = pow(nh, 400.0).mul(3.0).add(pow(nh, 40.0).mul(0.35)).mul(max(dot(N, this.uSun), 0.0));
+    // reflet du soleil sur une mer agitée (Cox et Munk 1954) : les pentes des vagues étalent le reflet en une
+    // grande tache diffuse, pas un point dur ; variance des pentes 0,035 ≈ vent de 5 m/s
+    // le vent varie d'une zone à l'autre : la rugosité suit un bruit fractal (300 à 40 km), le reflet devient
+    // une tache irrégulière, plus brillante par endroits, au lieu d'un disque uniforme
+    const wind = mx_fractal_noise_float(positionWorld.add(this.uCam).div(300000.0), 4);
+    const sigma2 = clamp(wind.mul(0.8).add(1.0).mul(0.035), 0.012, 0.07);
+    const tan2 = float(1.0).sub(nh.mul(nh)).div(max(nh.mul(nh), 1e-4));
+    const glint = exp(tan2.negate().div(sigma2)).div(max(pow(nh, 4.0), 0.05)).mul(float(0.012).div(sigma2))
+      .mul(max(dot(N, this.uSun), 0.0));
     // reflet du ciel, fort en incidence rasante (Fresnel de Schlick, eau ≈ 0,02)
     const fres = pow(float(1.0).sub(max(dot(N, V), 0.0)), 5.0).mul(0.98).add(0.02);
-    mat.emissiveNode = vec3(1.0, 0.86, 0.62).mul(glint).add(vec3(0.3, 0.48, 0.75).mul(fres).mul(0.5)).mul(flatWater);
+    mat.emissiveNode = vec3(1.0, 0.93, 0.82).mul(glint).add(vec3(0.3, 0.48, 0.75).mul(fres).mul(0.5)).mul(flatWater);
     return mat;
   }
 
