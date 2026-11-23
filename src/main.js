@@ -966,7 +966,6 @@ renderer.setAnimationLoop(() => {
   uHazeCam.value.copy(camPos);
   uHazeCamH.value = alt;
   uHazeSun.value.copy(sun.position);
-  globe.uSun.value.copy(sun.position);
   globe.uCam.value.copy(camPos);
   stars.material.opacity = THREE.MathUtils.clamp((alt - 40000) / 200000, 0, 0.85);
 

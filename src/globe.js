@@ -3,8 +3,7 @@
 
 import * as THREE from 'three/webgpu';
 import {
-  texture, uv, uniform, normalWorld, positionWorld, normalize, dot, max, pow, exp, clamp, smoothstep, vec3, float,
-  mx_fractal_noise_float,
+  texture, uv, uniform, normalWorld, positionWorld, normalize, dot, max, pow, smoothstep, vec3, float,
 } from 'three/tsl';
 import { geodeticToEcef, mercYToLat, latToMercY, MAX_LAT, A, B } from './geo.js';
 import { IMAGERY, VECTOR, GRID } from './config.js';
@@ -114,7 +113,6 @@ export class Globe {
     this.frustum = new THREE.Frustum();
     this.stats = { tiles: 0, loading: 0, buildings: 0 };
 
-    this.uSun = uniform(new THREE.Vector3(0, 1, 0)); // direction du soleil (repère monde), mise à jour par la page
     this.uCam = uniform(new THREE.Vector3());         // position ECEF de la caméra (origine flottante)
     this.buildingMaterial = createBuildingMaterial();
     this.roots = [];
@@ -136,7 +134,7 @@ export class Globe {
 
   register(tile) { this.index.set(tile.key, tile); }
 
-  // Lambert + reflet de l'eau. L'eau est repérée par sa couleur dans l'imagerie (bleu nuit, peu lumineux,
+  // Lambert + reflet du ciel sur l'eau. L'eau est repérée par sa couleur dans l'imagerie (bleu nuit, peu lumineux,
   // le bleu domine) : pas de masque à télécharger, et les lacs en profitent aussi.
   terrainMaterial(tex) {
     const mat = new THREE.MeshLambertNodeMaterial({ map: tex });
@@ -152,20 +150,9 @@ export class Globe {
     // l'eau est plate : on écarte les ombres sombres et bleutées des pentes raides
     const up = normalize(positionWorld.add(this.uCam));
     const flatWater = water.mul(smoothstep(0.985, 0.998, dot(N, up)));
-    const H = normalize(this.uSun.add(V));
-    const nh = max(dot(N, H), 0.0);
-    // reflet du soleil sur une mer agitée (Cox et Munk 1954) : les pentes des vagues étalent le reflet en une
-    // grande tache diffuse, pas un point dur ; variance des pentes 0,035 ≈ vent de 5 m/s
-    // le vent varie d'une zone à l'autre : la rugosité suit un bruit fractal (300 à 40 km), le reflet devient
-    // une tache irrégulière, plus brillante par endroits, au lieu d'un disque uniforme
-    const wind = mx_fractal_noise_float(positionWorld.add(this.uCam).div(300000.0), 4);
-    const sigma2 = clamp(wind.mul(0.8).add(1.0).mul(0.035), 0.012, 0.07);
-    const tan2 = float(1.0).sub(nh.mul(nh)).div(max(nh.mul(nh), 1e-4));
-    const glint = exp(tan2.negate().div(sigma2)).div(max(pow(nh, 4.0), 0.05)).mul(float(0.012).div(sigma2))
-      .mul(max(dot(N, this.uSun), 0.0));
     // reflet du ciel, fort en incidence rasante (Fresnel de Schlick, eau ≈ 0,02)
     const fres = pow(float(1.0).sub(max(dot(N, V), 0.0)), 5.0).mul(0.98).add(0.02);
-    mat.emissiveNode = vec3(1.0, 0.93, 0.82).mul(glint).add(vec3(0.3, 0.48, 0.75).mul(fres).mul(0.5)).mul(flatWater);
+    mat.emissiveNode = vec3(0.3, 0.48, 0.75).mul(fres).mul(0.5).mul(flatWater);
     return mat;
   }
 
