@@ -4,11 +4,25 @@
 
 const KEY = 'groundzero_renderer';
 
-// ?renderer=webgl|webgpu prime sur le choix enregistré
-export function preferredRenderer() {
+// choix explicite : ?renderer=webgl|webgpu, sinon le choix enregistré (null si aucun)
+function chosenRenderer() {
   const q = new URLSearchParams(location.search).get('renderer');
   if (q === 'webgl' || q === 'webgpu') return q;
-  try { return localStorage.getItem(KEY) === 'webgl' ? 'webgl' : 'webgpu'; } catch { return 'webgpu'; }
+  try { const v = localStorage.getItem(KEY); return v === 'webgl' || v === 'webgpu' ? v : null; } catch { return null; }
+}
+
+export function preferredRenderer() { return chosenRenderer() || 'webgpu'; }
+
+// sans choix explicite : WebGL 2 sur les cartes AMD (écran noir constaté en WebGPU)
+export async function pickRenderer() {
+  const chosen = chosenRenderer();
+  if (chosen) return chosen;
+  try {
+    const adapter = await navigator.gpu?.requestAdapter();
+    const vendor = (adapter?.info?.vendor || '').toLowerCase();
+    if (/\b(amd|ati)\b/.test(vendor)) return 'webgl';
+  } catch { /* pas d'adaptateur : WebGPU échouera et Three.js repliera sur WebGL */ }
+  return 'webgpu';
 }
 
 export function switchRenderer(kind) {
@@ -21,9 +35,16 @@ export function switchRenderer(kind) {
 const seen = new Set();
 let count = 0;
 
+// une erreur WebGPU au démarrage (ou dans les 10 s qui suivent) bascule seule en WebGL 2,
+// sauf si le visiteur a choisi WebGPU lui-même
+let autoUntil = Infinity;
+let onWebGPU = false;
+export function setBackend(isWebGPU) { onWebGPU = isWebGPU; }
+
 export function reportGpuError(message) {
   const text = String(message || 'Unknown graphics error').slice(0, 600);
   console.error('[GROUND//ZERO] graphics error:', text);
+  if (onWebGPU && !chosenRenderer() && performance.now() < autoUntil) { switchRenderer('webgl'); return; }
   count++;
   const box = document.getElementById('gpu-error');
   if (!box) return;
@@ -52,7 +73,7 @@ export function watchDevice(device) {
 
 // échec pendant le démarrage (init du rendu, shaders, globe)
 let started = false;
-export function markStarted() { started = true; }
+export function markStarted() { started = true; autoUntil = performance.now() + 10000; }
 window.addEventListener('error', (e) => { if (!started) reportGpuError(e.message); });
 window.addEventListener('unhandledrejection', (e) => { if (!started) reportGpuError(e.reason?.message || e.reason); });
 

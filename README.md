@@ -64,9 +64,9 @@ résolution et nombre de pas du nuage, ombrage, bloom, réfraction du choc, fine
 En *Auto*, la résolution s'adapte en continu puis le niveau descend/remonte selon la fluidité mesurée.
 Rendu à la demande : ~4 images/s quand rien ne bouge. En 4K à résolution égale : Ultra 15 i/s → Low 69 i/s.
 
-Moteur : WebGPU par défaut, WebGL 2 au choix (panneau Render pipeline, mémorisé, ou `?renderer=webgl`).
-Une erreur WebGPU (validation, perte du périphérique, échec au démarrage) s'affiche à l'écran avec un bouton
-pour passer en WebGL 2 : utile si un pilote laisse le globe noir.
+Moteur : WebGPU par défaut, WebGL 2 d'office sur les cartes AMD (globe noir constaté en WebGPU), au choix dans le
+panneau Render pipeline (mémorisé) ou par `?renderer=webgl`. Sans choix explicite, une erreur WebGPU au démarrage ou
+dans les 10 s qui suivent bascule seule en WebGL 2 ; ensuite, l'erreur s'affiche avec un bouton pour changer de moteur.
 
 ## Mobile
 
