@@ -1,8 +1,8 @@
 import { preferredRenderer, switchRenderer, watchDevice, markStarted } from './gpuReport.js';
 import * as THREE from 'three/webgpu';
 import {
-  positionView, normalize, cross, length, dot, clamp, pow, vec3, vec2, uniform, float, pass, screenUV, screenSize,
-  fract, sin, mix,
+  positionView, normalize, cross, length, dot, clamp, pow, vec3, vec2, vec4, uniform, float, pass, screenUV, screenSize,
+  fract, sin, mix, exp, abs, max, select, positionWorld, output, Fn,
 } from 'three/tsl';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { Globe } from './globe.js';
@@ -80,8 +80,35 @@ const uCenter = uniform(new THREE.Vector3());
   shell.renderOrder = -1;
   globe.group.add(shell);
 }
-const fog = new THREE.Fog(0xffffff, 1e6, 2e6);
-fog.color.setRGB(0.3, 0.52, 0.88, THREE.LinearSRGBColorSpace);
+// Perspective aérienne : atmosphère exponentielle (hauteur d'échelle 8 km). L'épaisseur optique se calcule
+// pour chaque pixel entre la caméra et le point vu ; le bleu s'éteint plus vite que le rouge, et un halo
+// s'ajoute du côté du soleil. Le même modèle règle la brume du champignon (voir explosion.update).
+const haze = {
+  beta: 1.2e-5, H: 8000,            // extinction au niveau de la mer (1/m) : ~80 km de visibilité, ~0,1 à la verticale
+  // gris-bleu peu lumineux : les aérosols blanchissent la brume, et le sol éclairé reste plus clair qu'elle
+  color: new THREE.Color().setRGB(0.24, 0.32, 0.45, THREE.LinearSRGBColorSpace),
+};
+const uHazeCam = uniform(new THREE.Vector3());
+const uHazeCamH = uniform(0);
+const uHazeSun = uniform(new THREE.Vector3(0, 1, 0));
+const uHazeColor = uniform(haze.color);
+scene.fogNode = Fn(() => {
+  const p = positionWorld;                       // origine flottante : la caméra est en (0,0,0)
+  const d = length(p);
+  const r0 = length(uHazeCam).sub(uHazeCamH);    // rayon terrestre local sous la caméra
+  const hc = max(uHazeCamH, 0.0);
+  const hf = max(length(uHazeCam.add(p)).sub(r0), 0.0);
+  const ec = exp(hc.div(-haze.H)), ef = exp(hf.div(-haze.H));
+  const dh = hc.sub(hf);
+  // densité moyenne le long du segment (intégrale exacte d'une atmosphère exponentielle)
+  const avg = select(abs(dh).greaterThan(30.0), ef.sub(ec).mul(haze.H).div(dh), exp(hc.add(hf).div(-2 * haze.H)));
+  const tau = d.mul(avg).mul(haze.beta);
+  const ext = exp(vec3(0.78, 0.92, 1.15).mul(tau).negate());
+  const sunGlow = pow(max(dot(p.div(max(d, 1.0)), uHazeSun), 0.0), 6.0).mul(0.8).add(1.0);
+  // brume proche gris-bleu ; très épaisse, elle rejoint la couleur du ciel à l'horizon
+  const inscatter = mix(uHazeColor, vec3(0.3, 0.48, 0.75), vec3(1.0).sub(ext)).mul(sunGlow);
+  return vec4(output.rgb.mul(ext).add(inscatter.mul(vec3(1.0).sub(ext))), output.a);
+})();
 
 // ---------- Niveaux de qualité ----------
 // Chaque niveau règle : résolution max, résolution et nombre de pas du nuage, ombrage du nuage,
@@ -936,15 +963,15 @@ renderer.setAnimationLoop(() => {
 
   const alt = controls.camHeight;
   uCenter.value.copy(camPos).negate().applyMatrix4(camera.matrixWorldInverse);
-  if (alt < 120000) {
-    fog.near = Math.min(horizon * 0.35, 4e4 + alt * 3);
-    fog.far = horizon * 1.25 + 2e4;
-    scene.fog = fog;
-  } else scene.fog = null;
+  uHazeCam.value.copy(camPos);
+  uHazeCamH.value = alt;
+  uHazeSun.value.copy(sun.position);
+  globe.uSun.value.copy(sun.position);
+  globe.uCam.value.copy(camPos);
   stars.material.opacity = THREE.MathUtils.clamp((alt - 40000) / 200000, 0, 0.85);
 
   // explosion
-  const s = explosion.update(state.t, camPos, pose.forward, sun.position, scene.fog, camera.matrixWorld);
+  const s = explosion.update(state.t, camPos, pose.forward, sun.position, haze, camera.matrixWorld);
   if (state.detonated && s) {
     const e = state.effects;
     const burst = new THREE.Vector3(...geodeticToEcef(d2r(state.lat), d2r(state.lon), explosion.groundH + s.capC));

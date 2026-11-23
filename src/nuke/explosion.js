@@ -279,6 +279,11 @@ export class Explosion {
       const sun = normalize(U.sunDir);
       const cosT = dot(rd, sun);
       const phase = mix(hg(cosT, -0.25), hg(cosT, 0.55), 0.65).mul(4.0 * Math.PI);
+      // diffusion multiple (Wrenninge 2013, repris par Frostbite) : octaves de moins en moins atténuées,
+      // de poids et d'anisotropie décroissants ; sans elle un nuage épais ressemble à de la fumée noire
+      const msPhase = [0.5, 0.25, 0.125].map((k) => mix(hg(cosT, -0.25 * k), hg(cosT, 0.55 * k), 0.65).mul(4.0 * Math.PI));
+      // lumière du ciel (par le haut) et rebond du sol éclairé par le soleil (par le bas)
+      const groundLit = clamp(sun.y, 0.0, 1.0).mul(0.9).add(0.1);
       const shadowStep = max(U.capMinor.mul(0.22), 15.0);
 
       const acc = vec3(0.0).toVar();
@@ -298,7 +303,10 @@ export class Explosion {
             const s2 = field(p.add(sun.mul(shadowStep.mul(3.0)))).x;
             od.assign(s1.mul(shadowStep).add(s2.mul(shadowStep.mul(2.0))));
           });
-          const sunT = exp(od.negate()).add(exp(od.mul(-0.2)).mul(0.12));
+          const sunT = exp(od.negate());
+          const ms = exp(od.mul(-0.5)).mul(0.5).mul(msPhase[0])
+            .add(exp(od.mul(-0.25)).mul(0.25).mul(msPhase[1]))
+            .add(exp(od.mul(-0.125)).mul(0.125).mul(msPhase[2])).mul(0.75);
           // occlusion ambiante : densité au-dessus de l'échantillon
           const ao = float(1.0).sub(sunT.oneMinus().mul(0.35)).toVar();
           If(U.aoOn.greaterThan(0.5), () => {
@@ -317,7 +325,8 @@ export class Explosion {
           const alb = mix(mix(capAlb, dustAlb, f.z), vec3(0.95, 0.96, 1.0), f.w);
 
           const hgt = clamp(p.y.div(max(U.capC.add(U.capMinor), 1.0)), 0.0, 1.0);
-          const sky = mix(vec3(0.12, 0.13, 0.15), vec3(0.32, 0.42, 0.58), hgt).mul(ao);
+          const sky = mix(vec3(0.2, 0.25, 0.33), vec3(0.34, 0.45, 0.62), hgt).mul(ao)
+            .add(vec3(0.2, 0.18, 0.15).mul(groundLit).mul(float(1.0).sub(hgt.mul(0.7))));
           const sunCol = vec3(2.6, 2.4, 2.1);
 
           // la boule de feu éclaire la fumée de l'intérieur
@@ -331,7 +340,7 @@ export class Explosion {
           const emitI = U.bright.mul(pow(T.div(4200.0), 3.0)).add(U.coreFade.mul(3.2).mul(hot).mul(hot));
           const emit = blackbody(T).mul(emitI).mul(hot);
 
-          const radiance = alb.mul(sunCol.mul(sunT).mul(phase).mul(powder).add(sky).add(inner)).add(emit);
+          const radiance = alb.mul(sunCol.mul(sunT.mul(phase).add(ms)).mul(powder).add(sky).add(inner)).add(emit);
           const stepT = exp(sigma.mul(ds).negate());
           acc.addAssign(radiance.mul(trans).mul(float(1.0).sub(stepT)));
           trans.mulAssign(stepT);
@@ -477,7 +486,8 @@ export class Explosion {
       If(alpha.lessThan(0.004), () => { Discard(); });
       return vec4(col, alpha);
     });
-    const mat = new THREE.MeshBasicNodeMaterial({ transparent: true, depthWrite: false, fog: false, side: THREE.DoubleSide });
+    // reçoit la perspective aérienne comme le terrain qu'il recouvre (sinon il se détache en anneau sombre)
+    const mat = new THREE.MeshBasicNodeMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide });
     const out = shader();
     mat.colorNode = out.rgb;
     mat.opacityNode = out.a;
@@ -582,8 +592,10 @@ export class Explosion {
 
     // soleil dans le repère local
     U.sunDir.value.set(sunWorld.dot(this.basis.e), sunWorld.dot(this.basis.u), sunWorld.dot(this.basis.s)).normalize();
+    // brume : même atmosphère exponentielle que le sol, densité prise entre la caméra et le cœur du nuage
     if (fog) {
-      U.visibility.value = Math.max(8000, fog.far * 0.6);
+      const hMid = Math.max(0, this.groundH + (U.camLocal.value.y + s.capC * 0.6) / 2);
+      U.visibility.value = 1 / (fog.beta * Math.exp(-hMid / fog.H));
       U.hazeColor.value.copy(fog.color);
     } else U.visibility.value = 4e5;
 

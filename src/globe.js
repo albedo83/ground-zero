@@ -2,6 +2,9 @@
 // file de chargement priorisée, cache LRU et rendu « relatif à la caméra ».
 
 import * as THREE from 'three/webgpu';
+import {
+  texture, uv, uniform, normalWorld, positionWorld, normalize, dot, max, pow, smoothstep, vec3, float,
+} from 'three/tsl';
 import { geodeticToEcef, mercYToLat, latToMercY, MAX_LAT, A, B } from './geo.js';
 import { IMAGERY, VECTOR, GRID } from './config.js';
 import { createBuildingMaterial } from './nuke/buildingMaterial.js';
@@ -110,6 +113,8 @@ export class Globe {
     this.frustum = new THREE.Frustum();
     this.stats = { tiles: 0, loading: 0, buildings: 0 };
 
+    this.uSun = uniform(new THREE.Vector3(0, 1, 0)); // direction du soleil (repère monde), mise à jour par la page
+    this.uCam = uniform(new THREE.Vector3());         // position ECEF de la caméra (origine flottante)
     this.buildingMaterial = createBuildingMaterial();
     this.roots = [];
     const n = 2 ** ROOT_Z;
@@ -129,6 +134,32 @@ export class Globe {
   }
 
   register(tile) { this.index.set(tile.key, tile); }
+
+  // Lambert + reflet de l'eau. L'eau est repérée par sa couleur dans l'imagerie (bleu nuit, peu lumineux,
+  // le bleu domine) : pas de masque à télécharger, et les lacs en profitent aussi.
+  terrainMaterial(tex) {
+    const mat = new THREE.MeshLambertNodeMaterial({ map: tex });
+    const c = texture(tex, uv()).rgb;
+    const lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    // rapports de couleur (stables quel que soit le zoom, même dans une mer très sombre) : mer et lacs ont
+    // bleu/vert ≥ 1 et bleu/rouge ≥ 2 ; forêt, ville et roche restent sous 1 ; l'eau est sombre (luminance < 0,03),
+    // ce qui écarte les ombres bleutées sur la neige
+    const bg = c.b.div(max(c.g, 0.0005)), br = c.b.div(max(c.r, 0.0005));
+    const water = smoothstep(0.85, 1.05, bg).mul(smoothstep(1.6, 2.4, br)).mul(float(1.0).sub(smoothstep(0.025, 0.05, lum)));
+    const N = normalize(normalWorld);
+    const V = normalize(positionWorld).negate();          // origine flottante : la caméra est en (0,0,0)
+    // l'eau est plate : on écarte les ombres sombres et bleutées des pentes raides
+    const up = normalize(positionWorld.add(this.uCam));
+    const flatWater = water.mul(smoothstep(0.985, 0.998, dot(N, up)));
+    const H = normalize(this.uSun.add(V));
+    const nh = max(dot(N, H), 0.0);
+    // scintillement du soleil : un lobe serré et un halo large, teinte dorée (comme sur les photos orbitales)
+    const glint = pow(nh, 400.0).mul(3.0).add(pow(nh, 40.0).mul(0.35)).mul(max(dot(N, this.uSun), 0.0));
+    // reflet du ciel, fort en incidence rasante (Fresnel de Schlick, eau ≈ 0,02)
+    const fres = pow(float(1.0).sub(max(dot(N, V), 0.0)), 5.0).mul(0.98).add(0.02);
+    mat.emissiveNode = vec3(1.0, 0.86, 0.62).mul(glint).add(vec3(0.3, 0.48, 0.75).mul(fres).mul(0.5)).mul(flatWater);
+    return mat;
+  }
 
   setImagery(name) {
     if (name === this.imagery) return;
@@ -333,7 +364,7 @@ export class Globe {
       tex.anisotropy = 8;
       tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
       tex.needsUpdate = true;
-      const mat = new THREE.MeshLambertMaterial({ map: tex });
+      const mat = this.terrainMaterial(tex);
       mat.color.setScalar(this.imagery === 'sentinel' ? 1.3 : 1.12); // Sentinel-2 est terne : on le ramène à une lumière de plein jour
       const mesh = new THREE.Mesh(geo, mat);
       mesh.position.set(...d.center);
